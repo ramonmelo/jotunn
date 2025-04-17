@@ -1,0 +1,32 @@
+# Compiled Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of `go build`
+/bin/
+/build/
+
+# Vendor directory (if using vendoring)
+/vendor/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+
+# Logs and debugging
+*.log
+jotunn.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Wordlists or custom creds
+wordlists/*
+!wordlists/.keep
