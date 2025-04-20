@@ -41,14 +41,18 @@ func main() {
 	logger.InitProgressTracker(len(users) * len(passwords))
 
 	jobs := make(chan attack.Attempt, 1000)
-	retries := make(chan attack.Attempt, 1000)
 	var wg sync.WaitGroup
 
-	limiter := attack.NewRateLimitManager(cfg.Threshold)
+	retries := make(chan attack.Attempt, 1000)
+	var relayWg sync.WaitGroup
+	relayWg.Add(1)
+
+	limiter := attack.NewRateLimitManager(cfg.Threshold, cfg.RateLimitStatusCodes)
 
 	go func() {
-		for combo := range retries {
-			jobs <- combo
+		defer relayWg.Done()
+		for attempt := range retries {
+			jobs <- attempt
 		}
 	}()
 
@@ -63,11 +67,11 @@ func main() {
 		}
 	}
 
-	close(jobs)
 	wg.Wait()
-
 	close(retries)
-	wg.Wait()
+
+	relayWg.Wait()
+	close(jobs)
 
 	duration := time.Since(start)
 	logger.Info("✅ Done in %s", duration)
