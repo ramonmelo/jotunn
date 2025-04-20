@@ -2,11 +2,9 @@ package attack
 
 import (
 	"crypto/tls"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -51,9 +49,13 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 		payload = strings.ReplaceAll(payload, "^PASS^", attempt.Password)
 
 		if cfg.CSRFField != "" {
-			csrfToken, err := utils.RetrieveCSRFToken(client, cfg.CSRFField, cfg.CSRFSourceURL)
+			csrfToken, statusCode, err := utils.RetrieveCSRFToken(client, cfg.CSRFField, cfg.CSRFSourceURL)
 			if err != nil {
-				logger.Error("[Worker %d] Failed to retrieve CSRF token: %v", id, err)
+				if limiter.HandleIfRateLimited(statusCode, retries, attempt) {
+					continue
+				}
+
+				logger.Error("[Worker %d] CSRF failed: %v", id, err)
 				continue
 			}
 
@@ -71,7 +73,7 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 		}
 
 		if err != nil {
-			fmt.Printf("[Worker %d] Request creation error: %v\n", id, err)
+			logger.Error("[Worker %d] Request creation error: %v\n", id, err)
 			continue
 		}
 
@@ -81,21 +83,20 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf("[Worker %d] Request error: %v\n", id, err)
+			logger.Error("[Worker %d] Request error: %v\n", id, err)
 			continue
 		}
+		defer resp.Body.Close()
 
 		statusCode := resp.StatusCode
-		if slices.Contains(cfg.RateLimitStatusCodes, statusCode) {
-			limiter.Trigger()
-			retries <- attempt
+		if limiter.HandleIfRateLimited(statusCode, retries, attempt) {
 			continue
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
 		if err != nil {
 			logger.Error("[Worker %d] Failed to read response body: %v", id, err)
+			continue
 		}
 
 		if isValidResponse(cfg, string(bodyBytes)) {
@@ -108,6 +109,6 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 }
 
 func isValidResponse(cfg *config.AttackConfig, body string) bool {
-	success, keywword := cfg.Keywork()
-	return success == strings.Contains(body, keywword)
+	success, keyword := cfg.Keyword()
+	return success == strings.Contains(body, keyword)
 }

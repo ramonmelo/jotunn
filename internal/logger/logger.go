@@ -56,3 +56,11 @@ func Success(format string, args ...any) {
 		fileLogger.Println("[SUCCESS]", fmt.Sprint(args...))
 	}
 }
+
+func Warn(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	logWithColor("\033[35m", "[WARN] ", msg)
+	if enableFile {
+		fileLogger.Println("[WARN]", fmt.Sprint(args...))
+	}
+}

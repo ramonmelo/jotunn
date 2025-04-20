@@ -1,6 +1,7 @@
 package attack
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -19,13 +20,15 @@ type RateLimitManager struct {
 	threshold                 int
 	backoff                   time.Duration
 	recoveredSinceLastTrigger bool
+	rateLimitCodes            []int
 }
 
-func NewRateLimitManager(threshold int) *RateLimitManager {
+func NewRateLimitManager(threshold int, rateLimitCodes []int) *RateLimitManager {
 	mgr := &RateLimitManager{
 		threshold:                 threshold,
 		backoff:                   5 * time.Minute,
 		recoveredSinceLastTrigger: true,
+		rateLimitCodes:            rateLimitCodes,
 	}
 	mgr.cond = sync.NewCond(&mgr.mu)
 	mgr.startTime = time.Now()
@@ -46,7 +49,20 @@ func (r *RateLimitManager) WaitIfBlocked() {
 	}
 }
 
-func (r *RateLimitManager) Trigger() {
+func (r *RateLimitManager) IsRateLimited(statusCode int) bool {
+	return slices.Contains(r.rateLimitCodes, statusCode)
+}
+
+func (r *RateLimitManager) HandleIfRateLimited(statusCode int, retries chan<- Attempt, attempt Attempt) bool {
+	if r.IsRateLimited(statusCode) {
+		r.TriggerAndRetry()
+		retries <- attempt
+		return true
+	}
+	return false
+}
+
+func (r *RateLimitManager) TriggerAndRetry() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -69,7 +85,7 @@ func (r *RateLimitManager) Trigger() {
 	elapsed := time.Since(r.startTime).Minutes()
 	rpm := int(float64(r.reqCount) / elapsed)
 
-	logger.Error("[RateLimit] Triggered in the %d try - estimated RPM: %d\n", r.reqCount, rpm)
+	logger.Error("[RateLimit] Triggered after %d attempts – estimated RPM: %d", r.reqCount, rpm)
 
 	if rpm < r.threshold {
 		r.threshold = rpm
@@ -102,7 +118,8 @@ func (r *RateLimitManager) cooldown() {
 	duration := r.backoff
 	r.mu.Unlock()
 
-	logger.Error("[RateLimit] Cooling down for %s...\n", duration)
+	now := time.Now().Format("15:04:05")
+	logger.Error("[RateLimit] [%s] Cooling down for %s...", now, duration)
 	time.Sleep(duration)
 
 	r.mu.Lock()
@@ -111,7 +128,8 @@ func (r *RateLimitManager) cooldown() {
 	r.startTime = time.Now()
 	r.mu.Unlock()
 
-	logger.Error("[RateLimit] Cooldown complete, resuming operations")
+	now = time.Now().Format("15:04:05")
+	logger.Error("[RateLimit] [%s] Cooldown complete, resuming operations\n", now)
 	r.cond.Broadcast()
 }
 

@@ -31,7 +31,7 @@ type AttackConfig struct {
 	RateLimitStatusCodes []int
 }
 
-func (cfg *AttackConfig) Keywork() (bool, string) {
+func (cfg *AttackConfig) Keyword() (bool, string) {
 	if cfg.SuccessKeyword != "" {
 		return true, cfg.SuccessKeyword
 	}
