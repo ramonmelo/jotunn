@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"sync"
 	"time"
 
 	"github.com/LinharesAron/jotunn/internal/attack"
@@ -40,38 +39,22 @@ func main() {
 	logger.Info("[~] Starting the BruteForce...")
 	logger.InitProgressTracker(len(users) * len(passwords))
 
-	jobs := make(chan attack.Attempt, 1000)
-	var wg sync.WaitGroup
-
-	retries := make(chan attack.Attempt, 1000)
-	var relayWg sync.WaitGroup
-	relayWg.Add(1)
-
+	dispatcher := attack.NewDispatcher(cfg.Threads, cfg.ThreadsRetry, 1000)
 	limiter := attack.NewRateLimitManager(cfg.Threshold, cfg.RateLimitStatusCodes)
 
-	go func() {
-		defer relayWg.Done()
-		for attempt := range retries {
-			jobs <- attempt
-		}
-	}()
-
-	for i := range cfg.Threads {
-		wg.Add(1)
-		go attack.Worker(i, cfg, jobs, retries, &wg, limiter)
-	}
+	dispatcher.Start(cfg, limiter)
+	dispatcher.StartWorkers(cfg, limiter)
 
 	for _, user := range users {
 		for _, pass := range passwords {
-			jobs <- attack.Attempt{Username: user, Password: pass}
+			dispatcher.Dispatch(attack.Attempt{Username: user, Password: pass})
 		}
 	}
+	dispatcher.CloseAttempts()
+	dispatcher.WaitAttemps()
 
-	wg.Wait()
-	close(retries)
-
-	relayWg.Wait()
-	close(jobs)
+	dispatcher.CloseRetries()
+	dispatcher.WaitRetries()
 
 	duration := time.Since(start)
 	logger.Info("✅ Done in %s", duration)

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 )
 
 var fileLogger *log.Logger
 var enableFile bool = false
+var logMu sync.Mutex
 
 func Init(path string) {
 	if path == "" {
@@ -25,9 +27,12 @@ func Init(path string) {
 }
 
 func logWithColor(colorCode string, prefix string, msg string) {
-	fmt.Fprint(os.Stdout, "\033[2K\r")
+	logMu.Lock()
+	defer logMu.Unlock()
 
+	fmt.Fprint(os.Stdout, "\033[2K\r")
 	fmt.Fprintln(os.Stderr, colorCode+prefix+msg+"\033[0m")
+
 	if Progress != nil {
 		Progress.renderInline()
 	}

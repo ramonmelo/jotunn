@@ -19,7 +19,7 @@ type Attempt struct {
 	Password string
 }
 
-func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<- Attempt, wg *sync.WaitGroup, limiter *RateLimitManager) {
+func Worker(id int, cfg *config.AttackConfig, input <-chan Attempt, dispatcher *Dispatcher, wg *sync.WaitGroup, limiter *RateLimitManager) {
 	defer wg.Done()
 
 	transport := &http.Transport{
@@ -40,7 +40,7 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 		Transport: transport,
 	}
 
-	for attempt := range jobs {
+	for attempt := range input {
 		limiter.WaitIfBlocked()
 		limiter.WaitCadence()
 		limiter.RegisterRequest()
@@ -51,7 +51,7 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 		if cfg.CSRFField != "" {
 			csrfToken, statusCode, err := utils.RetrieveCSRFToken(client, cfg.CSRFField, cfg.CSRFSourceURL)
 			if err != nil {
-				if limiter.HandleIfRateLimited(statusCode, retries, attempt) {
+				if limiter.HandleIfRateLimited(statusCode, dispatcher, attempt) {
 					continue
 				}
 
@@ -89,7 +89,7 @@ func Worker(id int, cfg *config.AttackConfig, jobs <-chan Attempt, retries chan<
 		defer resp.Body.Close()
 
 		statusCode := resp.StatusCode
-		if limiter.HandleIfRateLimited(statusCode, retries, attempt) {
+		if limiter.HandleIfRateLimited(statusCode, dispatcher, attempt) {
 			continue
 		}
 

@@ -53,10 +53,10 @@ func (r *RateLimitManager) IsRateLimited(statusCode int) bool {
 	return slices.Contains(r.rateLimitCodes, statusCode)
 }
 
-func (r *RateLimitManager) HandleIfRateLimited(statusCode int, retries chan<- Attempt, attempt Attempt) bool {
+func (r *RateLimitManager) HandleIfRateLimited(statusCode int, dispatcher *Dispatcher, attempt Attempt) bool {
 	if r.IsRateLimited(statusCode) {
 		r.TriggerAndRetry()
-		retries <- attempt
+		dispatcher.Retry(attempt)
 		return true
 	}
 	return false
@@ -73,22 +73,24 @@ func (r *RateLimitManager) TriggerAndRetry() {
 	r.blocked = true
 	r.lastTrigger = time.Now()
 
+	elapsed := time.Since(r.startTime).Minutes()
+	rpm := int(float64(r.reqCount) / elapsed)
+	logger.Warn("[RateLimit] Triggered after %d attempts – estimated RPM: %d", r.reqCount, rpm)
+
 	if r.recoveredSinceLastTrigger {
+		rpm = max(int(float64(rpm)*0.9), 10)
+		logger.Warn("[RateLimit] Threshold reduced by 10%% → %d RPM", rpm)
+
+		if rpm < r.threshold {
+			r.threshold = rpm
+		}
+
 		r.recoveredSinceLastTrigger = false
 	} else {
 		r.backoff *= 2
 		if r.backoff > 50*time.Minute {
 			r.backoff = 50 * time.Minute
 		}
-	}
-
-	elapsed := time.Since(r.startTime).Minutes()
-	rpm := int(float64(r.reqCount) / elapsed)
-
-	logger.Error("[RateLimit] Triggered after %d attempts – estimated RPM: %d", r.reqCount, rpm)
-
-	if rpm < r.threshold {
-		r.threshold = rpm
 	}
 
 	go r.cooldown()
@@ -119,7 +121,7 @@ func (r *RateLimitManager) cooldown() {
 	r.mu.Unlock()
 
 	now := time.Now().Format("15:04:05")
-	logger.Error("[RateLimit] [%s] Cooling down for %s...", now, duration)
+	logger.Warn("[RateLimit] [%s] Cooling down for %s...", now, duration)
 	time.Sleep(duration)
 
 	r.mu.Lock()
@@ -129,7 +131,7 @@ func (r *RateLimitManager) cooldown() {
 	r.mu.Unlock()
 
 	now = time.Now().Format("15:04:05")
-	logger.Error("[RateLimit] [%s] Cooldown complete, resuming operations\n", now)
+	logger.Warn("[RateLimit] [%s] Cooldown complete, resuming operations\n", now)
 	r.cond.Broadcast()
 }
 
