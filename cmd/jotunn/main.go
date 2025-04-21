@@ -36,22 +36,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("[~] Starting the BruteForce...")
 	logger.InitProgressTracker(len(users) * len(passwords))
+	logger.Info("[~] Starting the BruteForce...")
 
-	dispatcher := attack.NewDispatcher(cfg.Threads, cfg.ThreadsRetry, 1000)
+	dispatcher := attack.NewDispatcher(cfg.Threads, 10000)
 	limiter := attack.NewRateLimitManager(cfg.Threshold, cfg.RateLimitStatusCodes)
 
-	dispatcher.Start(cfg, limiter)
-	dispatcher.StartWorkers(cfg, limiter)
+	dispatcher.StartWorkersHandler(cfg, limiter)
+	dispatcher.StartRetryHandler(cfg, limiter)
 
-	for _, user := range users {
-		for _, pass := range passwords {
-			dispatcher.Dispatch(attack.Attempt{Username: user, Password: pass})
-		}
-	}
-	dispatcher.CloseAttempts()
-	dispatcher.WaitAttemps()
+	dispatcher.DistributeToWorkers(users, passwords)
+
+	dispatcher.CloseWorkers()
+	dispatcher.WaitWorkers()
 
 	dispatcher.CloseRetries()
 	dispatcher.WaitRetries()

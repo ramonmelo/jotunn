@@ -26,11 +26,12 @@ func InitProgressTracker(total int) {
 
 func (p *ProgressTracker) Inc() {
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	p.current++
 	current := p.current
 	total := p.total
 	startTime := p.startTime
-	p.mu.Unlock()
 
 	p.render(current, total, startTime)
 }

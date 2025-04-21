@@ -9,13 +9,12 @@ import (
 )
 
 type AttackConfig struct {
-	URL          string
-	Method       string
-	UserList     string
-	PassList     string
-	Threads      int
-	ThreadsRetry int
-	Threshold    int
+	URL       string
+	Method    string
+	UserList  string
+	PassList  string
+	Threads   int
+	Threshold int
 
 	Payload string
 	Headers map[string]string
@@ -66,7 +65,6 @@ func Load() *AttackConfig {
 
 	pflag.Parse()
 
-	cfg.ThreadsRetry = 2
 	if cfg.URL == "" {
 		logger.Error("[!] Missing required --url")
 		pflag.Usage()
