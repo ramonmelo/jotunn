@@ -46,7 +46,7 @@ jotunn \
   --proxy http://127.0.0.1:8080 \
   --log-file jotunn.log \
   --header "X-Custom-Header: value" \
-  --ratelimit-status-codes 429
+  --throttle-status-codes 429
 ```
 
 ---
@@ -72,7 +72,7 @@ jotunn \
 | `--fail, -f`                | Keyword indicating a failed login attempt                                  |
 | `--threads, -t`             | Number of threads – default is `10`                                        |
 | `--threshold, -T`           | Request per minute threshold – default is `100`                            |
-| `--proxy`                   | HTTP/SOCKS5 proxy to use for the requests                                  |
+| `--proxy`                   | HTTP or SOCKS5 proxy to route brute-force requests through                                  |
 | `--tor`                     | Enable Tor mode using proxy `socks5://127.0.0.1:9050`                       |
 | `--no-limit`                | Disable any throttling logic (faster, but risk of block)                   |
 | `--csrfsource`              | URL to fetch the CSRF token before login                                   |
@@ -155,7 +155,7 @@ When `--tor` is enabled, Jötunn will:
 - Resume only when the IP has changed or timeout occurs.
 
 **Requirements:**
-Make sure Tor is installed and the following is added to your `torrc` file:
+Ensure Tor is installed and that the following lines are present in your torrc configuration file:
 
 ```conf
   ControlPort 9051
@@ -186,7 +186,7 @@ When you use `--no-limit`, Jötunn disables all request pacing and retries.
 
 Some login forms include a CSRF token as a hidden field to prevent automated or cross-site submissions. Jötunn supports extracting this token before sending the login attempt.
 
-### How it works
+### How CSRF Token Extraction Works
 
 If the flag `--csrffield` is provided, Jötunn will:
 
@@ -228,6 +228,8 @@ jotunn \
 ---
 
 ## 📝 Logging
+
+All logs include timestamps, status indicators, and are written both to the terminal and (if configured) to the log file.
 
 You can save all output to a log file:
 
