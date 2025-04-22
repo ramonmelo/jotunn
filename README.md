@@ -59,6 +59,27 @@ jotunn \
 | `--payload` | HTTP payload with `^USER^` and `^PASS^`      |
 | `--success` or `--fail` | Keyword to detect success/failure |
 
+### 📚 Available Flags
+
+| Flag                         | Description                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| `--url, -u`                 | Target login URL (**required**)                                            |
+| `--method, -m`              | HTTP method (`GET` or `POST`) – default is `POST`                          |
+| `--users, -U`               | Path to username list – default is `wordlists/users.txt`                   |
+| `--passwords, -P`           | Path to password list – default is `wordlists/passwords.txt`               |
+| `--payload, -d`             | Payload format with ^USER^ and ^PASS^ placeholders                         |
+| `--success, -s`             | Keyword in the response indicating a successful login                      |
+| `--fail, -f`                | Keyword indicating a failed login attempt                                  |
+| `--threads, -t`             | Number of threads – default is `10`                                        |
+| `--threshold, -T`           | Request per minute threshold – default is `100`                            |
+| `--proxy`                   | HTTP/SOCKS5 proxy to use for the requests                                  |
+| `--tor`                     | Enable Tor mode using proxy `socks5://127.0.0.1:9050`                       |
+| `--no-limit`                | Disable any throttling logic (faster, but risk of block)                   |
+| `--csrfsource`              | URL to fetch the CSRF token before login                                   |
+| `--csrffield`               | HTML input name that holds the CSRF token                                  |
+| `--log-file`                | Path to save the output logs                                               |
+| `--throttle-status-codes`  | Status codes to treat as throttling (default `[429]`)                      |
+
 ---
 
 ## 📁 Wordlists
@@ -76,7 +97,7 @@ You can pass headers using `--header` multiple times:
 --header "Content-Type: application/json" --header "X-Auth: abc123"
 ```
 
-### ✅ Default headers (applied only if not overridden):
+### ✅ Default headers (applied only if not overridden)
 
 - `User-Agent: Jotunn/1.0`
 - `Content-Type: application/x-www-form-urlencoded`
@@ -93,17 +114,116 @@ Use `--proxy` to route requests through a proxy:
 
 ---
 
-## 📉 Rate Limit Handling
+## 🚦 Throttle Types
 
-- Detects rate-limit status codes (default: `429`)
-- Uses exponential backoff (log(n)) cooldown
-- Retries combos that were blocked
+Many applications implement rate limiting to prevent brute-force attacks. Jötunn comes with multiple Throttle strategies to adapt the attack pace and avoid detection or blocking.
 
-Customize with:
+### Available Throttlers
+
+You can control which throttling logic will be used with the following flags:
 
 ```bash
---ratelimit-status-codes 429,403,503
+  --no-limit                    Disables all throttling. Fastest but risky.
+  --throttle-status-codes       List of HTTP status codes considered throttling (default: 429)
+  --tor                         Enable Tor mode (requires Tor and ControlPort access)
 ```
+
+### 🧊 StandardThrottler (default)
+
+This is the default strategy used by Jötunn. It:
+
+- Monitors request rate (RPM).
+- Automatically lowers the threshold by 10% on each block.
+- Waits and applies exponential backoff: starting with 5 minutes, doubling until 50 minutes max.
+- Automatically detects recovery and resumes.
+
+**Behavior:**
+
+```conf
+  Trigger → Cooldown → Resume → If blocked again → Lower RPM → Longer cooldown
+```
+
+> You can customize which status codes trigger this behavior with `--throttle-status-codes`.
+
+### 🧅 TorThrottle – Evade with a new identity
+
+When `--tor` is enabled, Jötunn will:
+
+- Route traffic through the Tor network (via 127.0.0.1:9050).
+- Use the ControlPort (9051) to request a new identity/IP when throttled.
+- Pause all workers while waiting for the new IP to be active.
+- Resume only when the IP has changed or timeout occurs.
+
+**Requirements:**
+Make sure Tor is installed and the following is added to your `torrc` file:
+
+```conf
+  ControlPort 9051
+  CookieAuthentication 0
+```
+
+> You can usually find your `torrc` in `/etc/tor/torrc` or `/usr/local/etc/tor/torrc`.
+
+**Behavior:**
+
+```conf
+  Trigger → Request new IP → Wait for IP change → Resume
+```
+
+> 💡 This strategy is ideal for hardened targets or CTFs that aggressively block brute-force attempts.
+
+## ☠️ NoLimitThrottle
+
+When you use `--no-limit`, Jötunn disables all request pacing and retries.
+
+- Useful for fast testing or internal environments.
+- Dangerous against real targets – likely to trigger defenses or get IP banned.
+- No backoff, no retries, no detection of 429/403 – it just goes.
+
+---
+
+## 🔐 CSRF Token Support
+
+Some login forms include a CSRF token as a hidden field to prevent automated or cross-site submissions. Jötunn supports extracting this token before sending the login attempt.
+
+### How it works
+
+If the flag `--csrffield` is provided, Jötunn will:
+
+1. Perform a **GET** request to the target page (by default the same URL as `--url` unless `--csrfsource` is defined).
+2. Parse the **HTML** to extract the value of the CSRF token using the provided field name.
+3. Replace the `^CSRF^` placeholder in the payload with the extracted token.
+4. Proceed with the brute-force attempt using the updated payload
+
+### Flags
+
+```bash
+  --csrffield string        Name of the CSRF field to extract (e.g. "csrf_token")
+  --csrfsource string       URL where the CSRF token will be retrieved (defaults to --url if not provided)
+```
+
+### Payload Usage
+
+Your payload should include the special token ^CSRF^, which will be dynamically replaced.
+Example:
+
+```bash
+  -d "username=^USER^&password=^PASS^&csrf_token=^CSRF^"
+```
+
+### Example
+
+```bash
+jotunn \
+  --url https://target.com/login \
+  --csrffield "csrf_token" \
+  --payload "username=^USER^&password=^PASS^&csrf_token=^CSRF^" \
+  --users users.txt \
+  --passwords passwords.txt \
+  --fail "Invalid credentials"
+```
+
+> 💡 If CSRF extraction fails due to a rate-limit (429), the request will be retried according to the throttling logic. Otherwise, it will be ignored.
 
 ---
 
@@ -114,50 +234,9 @@ You can save all output to a log file:
 ```bash
 --log-file jotunn.log
 ```
----
-
-## 🔐 CSRF Token Support
-
-If the target login form requires a **CSRF token**, you can configure Jötunn to fetch it automatically before each login attempt.
-
-### 🧭 How it works
-
-1. A `GET` request is sent to the page that contains the CSRF token (usually the login form).
-2. The token is extracted from the HTML input field (by name).
-3. It is injected into your payload, replacing the placeholder `^CSRF^`.
 
 ---
 
-### ⚙️ Required flags
-
-| Flag             | Description                                                                 |
-|------------------|-----------------------------------------------------------------------------|
-| `--csrffield`    | Name of the HTML input field that holds the CSRF token (e.g., `csrf_token`) |
-| `--csrfsource`   | (Optional) URL to fetch the token from. Defaults to `--url` if not set      |
-
----
-
-### ⚠️ Important
-
-Your `--payload` must include the placeholder `^CSRF^` or the token will **not** be inserted.
-
-```bash
---payload "username=^USER^&password=^PASS^&csrf_token=^CSRF^"
-```
-
----
-
-### ✅ Example
-
-```bash
-jotunn \
-  --url https://target.com/login \
-  --csrffield csrf_token \
-  --payload "username=^USER^&password=^PASS^&csrf_token=^CSRF^" \
-  --success "Welcome back"
-```
-
----
 ## ⚠️ Disclaimer
 
 This tool is intended for **authorized testing and research only**.  

@@ -51,7 +51,7 @@ func Load() *AttackConfig {
 	pflag.StringVarP(&cfg.PassList, "passwords", "P", "wordlists/passwords.txt", "Path to passwords list")
 	pflag.IntVarP(&cfg.Threads, "threads", "t", 10, "Number of concurrent threads")
 	pflag.IntVarP(&cfg.Threshold, "threshold", "T", 5000, "Number of request per minute")
-	pflag.StringVarP(&cfg.Payload, "payload", "d", "", "Payload type: form, json, raw")
+	pflag.StringVarP(&cfg.Payload, "payload", "d", "", "Payload format with ^USER^ and ^PASS^ placeholders")
 	pflag.StringArrayVar(&headerList, "header", []string{}, "Additional headers (can be repeated)")
 
 	pflag.StringVar(&cfg.CSRFField, "csrffield", "", "Name of the CSRF field to extract from HTML (e.g., csrf_token). Your payload must contain ^CSRF^ for the token to be replaced.")
