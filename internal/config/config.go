@@ -25,10 +25,12 @@ type AttackConfig struct {
 	SuccessKeyword string
 	FailKeyword    string
 
-	LogFile string
-	Proxy   string
+	LogFile    string
+	Proxy      string
+	UseTor     bool
+	UseNoLimit bool
 
-	RateLimitStatusCodes []int
+	ThrottleCodes []int
 }
 
 func (cfg *AttackConfig) Keyword() (bool, string) {
@@ -58,10 +60,13 @@ func Load() *AttackConfig {
 	pflag.StringVarP(&cfg.SuccessKeyword, "success", "s", "", "Success message if login completed")
 	pflag.StringVarP(&cfg.FailKeyword, "fail", "f", "", "Fail message if login failed (override by the --success flag)")
 
-	pflag.IntSliceVar(&cfg.RateLimitStatusCodes, "ratelimit-status-codes", []int{429}, "List of HTTP status codes considered rate limiting")
+	pflag.IntSliceVar(&cfg.ThrottleCodes, "throttle-status-codes", []int{429}, "List of HTTP status codes considered for throttling")
 
 	pflag.StringVar(&cfg.LogFile, "log-file", "", "Path where the log file will be writen")
 	pflag.StringVar(&cfg.Proxy, "proxy", "", "Proxy to use for requests (e.g. http://127.0.0.1:8080)")
+
+	pflag.BoolVar(&cfg.UseTor, "tor", false, "Route all traffic through Tor (overrides --proxy with socks5://127.0.0.1:9050)")
+	pflag.BoolVar(&cfg.UseNoLimit, "no-limit", false, "Disables rate limiting. Use with caution: may trigger throttling on the target server.")
 
 	pflag.Parse()
 
@@ -86,6 +91,13 @@ func Load() *AttackConfig {
 	if cfg.CSRFField != "" && cfg.CSRFSourceURL == "" {
 		cfg.CSRFSourceURL = cfg.URL
 		logger.Info("[~] No --csrfsource provided, defaulting to --url: %s", cfg.URL)
+	}
+
+	if cfg.UseTor {
+		cfg.Proxy = "socks5://127.0.0.1:9050"
+		logger.Info("[~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]")
+		logger.Info("[~ Tor mode enabled – using SOCKS5 proxy on 127.0.0.1:9050 ~]")
+		logger.Info("[~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]")
 	}
 
 	cfg.Headers = make(map[string]string)

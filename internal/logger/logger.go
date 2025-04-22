@@ -18,7 +18,7 @@ func Init(path string) {
 
 	logFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "\033[31m[ERROR] Failed to create log file: %v\033[0m\n", err)
+		fmt.Fprintf(os.Stdout, "\033[31mFailed to create log file: %v\033[0m\n", err)
 		return
 	}
 
@@ -40,7 +40,7 @@ func logWithColor(colorCode string, prefix string, msg string) {
 
 func Info(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	logWithColor("\033[33m", "[INFO] ", msg)
+	logWithColor("\033[33m", "", msg)
 	if enableFile {
 		fileLogger.Printf("[INFO] %s", msg)
 	}
