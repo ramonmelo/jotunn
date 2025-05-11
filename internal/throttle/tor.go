@@ -28,7 +28,7 @@ type TorThrottler struct {
 
 func NewTorThrottler(throttleCodes []int) *TorThrottler {
 	t := &TorThrottler{
-		cooldown: 2 * time.Minute,
+		cooldown: 1 * time.Minute,
 		codes:    throttleCodes,
 	}
 	t.cond = sync.NewCond(&t.mu)
@@ -97,8 +97,10 @@ func (t *TorThrottler) trigger() {
 
 func (t *TorThrottler) waitResetTorIdentity() {
 	var newip string
+	var err error
+
 	for range 5 {
-		newip, err := utils.RetrieveTorIP()
+		newip, err = utils.RetrieveTorIP()
 		if err != nil {
 			logger.Warn("[TorThrottle] [%s] Unable to retrieve IP, trying again...", time.Now().Format("15:04:05"))
 		}

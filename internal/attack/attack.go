@@ -93,8 +93,9 @@ func (a *Attack) Start(id int, wg *sync.WaitGroup, input <-chan types.Attempt) {
 			continue
 		}
 
-		if isValidResponse(a.cfg, string(bodyBytes)) {
-			logger.Success("🎯 [Worker %d] Valid username:password → %s:%s", id, attempt.Username, attempt.Password)
+		body := string(bodyBytes)
+		if isValidResponse(a.cfg, body, statusCode) {
+			logger.Success("🎯 [Worker %d] [%d] [%s] Valid username:password → %s:%s 🎯", id, statusCode, body[:min(len(body), 10)], attempt.Username, attempt.Password)
 		}
 
 		a.throttle.MarkRecovered()
@@ -102,7 +103,11 @@ func (a *Attack) Start(id int, wg *sync.WaitGroup, input <-chan types.Attempt) {
 	}
 }
 
-func isValidResponse(cfg *config.AttackConfig, body string) bool {
+func isValidResponse(cfg *config.AttackConfig, body string, statusCode int) bool {
 	success, keyword := cfg.Keyword()
-	return success == strings.Contains(body, keyword)
+
+	isSuccessfulStatus := statusCode >= 200 && statusCode < 400
+	containsKeyword := strings.Contains(body, keyword)
+
+	return isSuccessfulStatus && (success == containsKeyword)
 }
