@@ -4,110 +4,76 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/LinharesAron/jotunn/internal/config"
-	"github.com/LinharesAron/jotunn/internal/core"
-	"github.com/LinharesAron/jotunn/internal/httpclient"
-	"github.com/LinharesAron/jotunn/internal/logger"
-	"github.com/LinharesAron/jotunn/internal/throttle"
 	"github.com/LinharesAron/jotunn/internal/types"
 	"github.com/LinharesAron/jotunn/internal/utils"
 )
 
-type Attack struct {
-	dispatcher *core.Dispatcher
-	throttle   throttle.Throttler
-	cfg        *config.AttackConfig
-}
+func ExecuteAttempt(client *http.Client, cfg *config.AttackConfig, attempt *types.Attempt) (bool, int, error) {
 
-func NewAttack(cfg *config.AttackConfig, dispatcher *core.Dispatcher, thorttle throttle.Throttler) types.WorkerHandler {
-	return &Attack{
-		dispatcher: dispatcher,
-		cfg:        cfg,
-		throttle:   thorttle,
+	values := map[string]string{
+		"^USER^": attempt.Username,
+		"^PASS^": attempt.Password,
 	}
-}
 
-func (a *Attack) Start(id int, wg *sync.WaitGroup, input <-chan types.Attempt) {
-	defer wg.Done()
-
-	client := httpclient.Get()
-
-	for attempt := range input {
-		a.throttle.WaitIfBlocked()
-		a.throttle.WaitCadence()
-		a.throttle.RegisterRequest()
-
-		payload := strings.ReplaceAll(a.cfg.Payload, "^USER^", attempt.Username)
-		payload = strings.ReplaceAll(payload, "^PASS^", attempt.Password)
-
-		if a.cfg.CSRFField != "" {
-			csrfToken, statusCode, err := utils.RetrieveCSRFToken(client, a.cfg.CSRFField, a.cfg.CSRFSourceURL)
-			if err != nil {
-				if a.throttle.HandleThrottle(statusCode, a.dispatcher, attempt) {
-					continue
-				}
-
-				logger.Error("[Worker %d] CSRF failed: %v", id, err)
-				continue
-			}
-
-			payload = strings.ReplaceAll(payload, "^CSRF^", csrfToken)
-		}
-
-		var req *http.Request
-		var err error
-
-		if strings.ToUpper(a.cfg.Method) == "GET" {
-			urlWithQuery := a.cfg.URL + "?" + payload
-			req, err = http.NewRequest(a.cfg.Method, urlWithQuery, nil)
-		} else {
-			req, err = http.NewRequest(a.cfg.Method, a.cfg.URL, strings.NewReader(payload))
-		}
-
+	if cfg.CSRFField != "" {
+		statusCode, csrfToken, err := utils.RetrieveCSRFToken(client, cfg.CSRFField, cfg.CSRFSourceURL)
 		if err != nil {
-			logger.Error("[Worker %d] Request creation error: %v\n", id, err)
-			continue
+			return false, statusCode, err
 		}
-
-		for k, v := range a.cfg.Headers {
-			req.Header.Set(k, v)
-		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			logger.Error("[Worker %d] Request error: %v\n", id, err)
-			continue
-		}
-		defer resp.Body.Close()
-
-		statusCode := resp.StatusCode
-		if a.throttle.HandleThrottle(statusCode, a.dispatcher, attempt) {
-			continue
-		}
-
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			logger.Error("[Worker %d] Failed to read response body: %v", id, err)
-			continue
-		}
-
-		body := string(bodyBytes)
-		if isValidResponse(a.cfg, body, statusCode) {
-			logger.Success("🎯 [Worker %d] [%d] [%s] Valid username:password → %s:%s 🎯", id, statusCode, body[:min(len(body), 10)], attempt.Username, attempt.Password)
-		}
-
-		a.throttle.MarkRecovered()
-		logger.Progress.Inc()
+		values["^CSRF^"] = csrfToken
 	}
+
+	payload := utils.ReplacePlaceholders(cfg.Payload, values)
+	var req *http.Request
+	var err error
+
+	if strings.ToUpper(cfg.Method) == "GET" {
+		urlWithQuery := cfg.URL + "?" + payload
+		req, err = http.NewRequest(cfg.Method, urlWithQuery, nil)
+	} else {
+		req, err = http.NewRequest(cfg.Method, cfg.URL, strings.NewReader(payload))
+	}
+
+	if err != nil {
+		return false, -1, err
+	}
+
+	for k, v := range cfg.Headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, -1, err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, -1, err
+	}
+
+	body := string(bodyBytes)
+	statusCode := resp.StatusCode
+
+	if isValidResponse(cfg, body) {
+		if isValidStatusCode(statusCode) {
+			return true, statusCode, nil
+		}
+		return false, statusCode, &InvalidStatusCode{statusCode}
+	}
+	return isValidResponse(cfg, body), statusCode, nil
 }
 
-func isValidResponse(cfg *config.AttackConfig, body string, statusCode int) bool {
+func isValidStatusCode(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 400
+}
+
+func isValidResponse(cfg *config.AttackConfig, body string) bool {
 	success, keyword := cfg.Keyword()
-
-	isSuccessfulStatus := statusCode >= 200 && statusCode < 400
 	containsKeyword := strings.Contains(body, keyword)
 
-	return isSuccessfulStatus && (success == containsKeyword)
+	return success == containsKeyword
 }

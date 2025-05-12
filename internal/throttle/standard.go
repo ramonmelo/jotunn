@@ -1,16 +1,14 @@
 package throttle
 
 import (
-	"slices"
 	"sync"
 	"time"
 
-	"github.com/LinharesAron/jotunn/internal/core"
 	"github.com/LinharesAron/jotunn/internal/logger"
-	"github.com/LinharesAron/jotunn/internal/types"
 )
 
 type StandardThrottler struct {
+	Throttler
 	mu   sync.Mutex
 	cond *sync.Cond
 
@@ -25,7 +23,6 @@ type StandardThrottler struct {
 	threshold int
 
 	backoff                   time.Duration
-	throttleCodes             []int
 	recoveredSinceLastTrigger bool
 }
 
@@ -64,30 +61,13 @@ func (s *StandardThrottler) WaitCadence() {
 	s.lastRequest = time.Now()
 }
 
-func (s *StandardThrottler) IsThrottling(statusCode int) bool {
-	return slices.Contains(s.throttleCodes, statusCode)
-}
-
-func (s *StandardThrottler) HandleThrottle(statusCode int, dispatcher *core.Dispatcher, attempt types.Attempt) bool {
-	if !s.IsThrottling(statusCode) {
-		return false
-	}
-
-	if err := dispatcher.Retry(attempt); err != nil {
-		logger.Warn("[StandardThrottler] Retry limit reached for %s:%s – ignoring attempt → %s", attempt.Username, attempt.Password, err)
-	}
-
-	s.trigger()
-	return true
-}
-
 func (s *StandardThrottler) MarkRecovered() {
 	s.mu.Lock()
 	s.recoveredSinceLastTrigger = true
 	s.mu.Unlock()
 }
 
-func (s *StandardThrottler) trigger() {
+func (s *StandardThrottler) Trigger() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

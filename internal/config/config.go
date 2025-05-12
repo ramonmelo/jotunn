@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/LinharesAron/jotunn/internal/logger"
@@ -38,6 +39,10 @@ func (cfg *AttackConfig) Keyword() (bool, string) {
 		return true, cfg.SuccessKeyword
 	}
 	return false, cfg.FailKeyword
+}
+
+func (cfg *AttackConfig) IsThrottlingStatus(statusCode int) bool {
+	return slices.Contains(cfg.ThrottleCodes, statusCode)
 }
 
 func Load() *AttackConfig {

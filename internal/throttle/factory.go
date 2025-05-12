@@ -16,19 +16,18 @@ func New(cfg *config.AttackConfig) Throttler {
 		return NewTor(cfg.ThrottleCodes)
 	}
 
-	return NewStandard(cfg.Threshold, cfg.ThrottleCodes)
+	return NewStandard(cfg.Threshold)
 }
 
 func NewTor(throttleCodes []int) Throttler {
 	return NewTorThrottler(throttleCodes)
 }
 
-func NewStandard(threshold int, throttleCodes []int) Throttler {
+func NewStandard(threshold int) Throttler {
 	t := &StandardThrottler{
 		threshold:                 threshold,
 		backoff:                   5 * time.Minute,
 		recoveredSinceLastTrigger: true,
-		throttleCodes:             throttleCodes,
 		cond:                      sync.NewCond(&sync.Mutex{}),
 		startTime:                 time.Now(),
 	}

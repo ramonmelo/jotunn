@@ -9,10 +9,17 @@ import (
 )
 
 type ProgressTracker struct {
-	total     int
-	current   int
-	startTime time.Time
-	mu        sync.Mutex
+	total         int
+	current       int
+	success       int
+	errors        int
+	retries       int
+	startTime     time.Time
+	lastETAUpdate time.Time
+	lastETA       time.Duration
+	isTor         bool
+	torIP         string
+	mu            sync.Mutex
 }
 
 var Progress *ProgressTracker
@@ -36,6 +43,31 @@ func (p *ProgressTracker) Inc() {
 	p.render(current, total, startTime)
 }
 
+func (p *ProgressTracker) AddSuccess() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.success++
+}
+
+func (p *ProgressTracker) AddError() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.errors++
+}
+
+func (p *ProgressTracker) AddRetry() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.retries++
+}
+
+func (p *ProgressTracker) SetTor(ip string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.isTor = true
+	p.torIP = ip
+}
+
 func (p *ProgressTracker) renderInline() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -49,15 +81,56 @@ func (p *ProgressTracker) render(current, total int, startTime time.Time) {
 	width := 30
 	progress := float64(current) / float64(total)
 	filled := int(progress * float64(width))
-
 	bar := "[" + strings.Repeat("=", filled) + ">" + strings.Repeat(" ", width-filled) + "]"
 
-	elapsed := time.Since(startTime).Seconds()
-	rate := float64(current) / elapsed
+	elapsed := time.Since(startTime)
+	rate := float64(current) / elapsed.Seconds()
+	etaStr := "--"
+	now := time.Now()
 
-	fmt.Fprintf(os.Stdout, "\r🔥 Bruteforcing %s %d/%d (%.1f it/s)", bar, current, total, rate)
+	if elapsed >= 10*time.Second && rate > 0 {
+		rawETA := time.Duration(float64(p.total-current)/rate) * time.Second
+
+		if p.lastETAUpdate.IsZero() || now.Sub(p.lastETAUpdate) >= 50*time.Second {
+			p.lastETA = rawETA
+			p.lastETAUpdate = now
+		}
+
+		etaStr = formatDuration(p.lastETA)
+	}
+
+	tor := ""
+	if p.isTor {
+		tor = fmt.Sprintf(" 🧅 %s", p.torIP)
+	}
+
+	status := fmt.Sprintf(
+		"\r🔥 Bruteforcing %s %d/%d (%.1f it/s) ⏱ %s ⌛ %s | 🎯 %d ❌ %d 🔁 %d%s ",
+		bar,
+		current, total,
+		rate,
+		formatDuration(elapsed),
+		etaStr,
+		p.success,
+		p.errors,
+		p.retries,
+		tor,
+	)
+
+	fmt.Fprint(os.Stdout, status)
 
 	if current == total {
 		fmt.Println()
 	}
+}
+
+func formatDuration(d time.Duration) string {
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+
+	if h > 0 {
+		return fmt.Sprintf("%02dh%02dm%02ds", h, m, s)
+	}
+	return fmt.Sprintf("%02dm%02ds", m, s)
 }

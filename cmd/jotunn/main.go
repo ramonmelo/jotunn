@@ -4,7 +4,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/LinharesAron/jotunn/internal/attack"
 	"github.com/LinharesAron/jotunn/internal/config"
 	"github.com/LinharesAron/jotunn/internal/core"
 	"github.com/LinharesAron/jotunn/internal/httpclient"
@@ -12,6 +11,7 @@ import (
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/throttle"
 	"github.com/LinharesAron/jotunn/internal/utils"
+	"github.com/LinharesAron/jotunn/internal/worker"
 )
 
 func main() {
@@ -67,10 +67,10 @@ You can add the following to your torrc file:
 	dispatcher := core.NewDispatcher(cfg.Threads, 3, 10000)
 	throttle := throttle.New(cfg)
 
-	attacker := attack.NewAttack(cfg, dispatcher, throttle)
+	handler := worker.NewAttack(cfg, throttle)
 
-	dispatcher.StartWorkersHandler(cfg.Threads, attacker)
-	dispatcher.StartRetryHandler(attacker)
+	dispatcher.StartWorkersHandler(cfg.Threads, handler)
+	dispatcher.StartRetryHandler(handler)
 
 	dispatcher.DistributeToWorkers(users, passwords)
 

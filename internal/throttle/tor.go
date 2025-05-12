@@ -9,9 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/LinharesAron/jotunn/internal/core"
 	"github.com/LinharesAron/jotunn/internal/logger"
-	"github.com/LinharesAron/jotunn/internal/types"
 	"github.com/LinharesAron/jotunn/internal/utils"
 )
 
@@ -62,22 +60,9 @@ func (t *TorThrottler) IsThrottling(statusCode int) bool {
 	return slices.Contains(t.codes, statusCode)
 }
 
-func (t *TorThrottler) HandleThrottle(statusCode int, dispatcher *core.Dispatcher, attempt types.Attempt) bool {
-	if !t.IsThrottling(statusCode) {
-		return false
-	}
-
-	if err := dispatcher.Retry(attempt); err != nil {
-		logger.Warn("[TorThrottle] Retry limit reached for %s:%s – ignoring attempt → %s", attempt.Username, attempt.Password, err)
-	}
-
-	t.trigger()
-	return true
-}
-
 func (t *TorThrottler) MarkRecovered() {}
 
-func (t *TorThrottler) trigger() {
+func (t *TorThrottler) Trigger() {
 	t.mu.Lock()
 	if t.blocked {
 		t.mu.Unlock()

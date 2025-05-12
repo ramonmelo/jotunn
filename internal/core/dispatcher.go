@@ -2,11 +2,11 @@ package core
 
 import (
 	"errors"
-	"math/rand"
 	"sync"
 
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/types"
+	"github.com/LinharesAron/jotunn/internal/worker"
 )
 
 type Dispatcher struct {
@@ -52,14 +52,14 @@ func (d *Dispatcher) DistributeToWorkers(users []string, passwords []string) {
 	distWg.Wait()
 }
 
-func (d *Dispatcher) StartWorkersHandler(threads int, work types.WorkerHandler) {
-	for i := range threads {
+func (d *Dispatcher) StartWorkersHandler(threads int, work worker.Worker) {
+	for range threads {
 		d.workerWg.Add(1)
-		go work.Start(i, d.workerWg, d.workers)
+		go work.Start(d.workerWg, d.workers, d.shouldRetry)
 	}
 }
 
-func (d *Dispatcher) StartRetryHandler(work types.WorkerHandler) {
+func (d *Dispatcher) StartRetryHandler(work worker.Worker) {
 	go func() {
 		for attempt := range d.retries {
 			d.retriesWg.Add(1)
@@ -70,7 +70,7 @@ func (d *Dispatcher) StartRetryHandler(work types.WorkerHandler) {
 				close(ch)
 
 				d.workerWg.Add(1)
-				work.Start(rand.Intn(9999), d.workerWg, ch)
+				work.Start(d.workerWg, ch, d.shouldRetry)
 			}(attempt)
 		}
 	}()
@@ -88,7 +88,7 @@ func (d *Dispatcher) Dispatch(attempt types.Attempt) {
 	d.workers <- attempt
 }
 
-func (d *Dispatcher) Retry(attempt types.Attempt) error {
+func (d *Dispatcher) shouldRetry(attempt types.Attempt) error {
 	if d.retryTracker.ShouldRetry(attempt) {
 		d.retries <- attempt
 		return nil
