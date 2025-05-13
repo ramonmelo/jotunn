@@ -4,17 +4,35 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 type TerminalUI struct {
 	mu           sync.Mutex
+	eventQueue   chan UIEvent
 	progressSize int
 }
 
-var UI *TerminalUI
+type UIEvent struct {
+	Type    string
+	Prefix  string
+	Color   string
+	Message string
+	Lines   []string
+}
+
+var (
+	UI   *TerminalUI
+	once sync.Once
+)
 
 func Init() {
-	UI = &TerminalUI{}
+	once.Do(func() {
+		UI = &TerminalUI{
+			eventQueue: make(chan UIEvent, 1000),
+		}
+		UI.StartLoop()
+	})
 }
 
 func (ui *TerminalUI) CleanProgress() {
@@ -28,22 +46,43 @@ func (ui *TerminalUI) CleanProgress() {
 }
 
 func (ui *TerminalUI) LogLine(prefix, color, msg string) {
-	ui.mu.Lock()
-	defer ui.mu.Unlock()
-	ui.CleanProgress()
-
-	entry := fmt.Sprintf("%s%s%s\033[0m", color, prefix, msg)
-	fmt.Fprintln(os.Stdout, entry)
+	ui.eventQueue <- UIEvent{Type: "log", Prefix: prefix, Color: color, Message: msg}
 }
 
 func (ui *TerminalUI) SetProgress(lines ...string) {
-	ui.mu.Lock()
-	defer ui.mu.Unlock()
-	ui.CleanProgress()
+	ui.eventQueue <- UIEvent{Type: "progress", Lines: lines}
+}
 
-	for _, line := range lines {
-		fmt.Fprintln(os.Stdout, line)
-	}
+func (ui *TerminalUI) StartLoop() {
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		var pendingLogs []UIEvent
+		var pendingProgress []string
 
-	ui.progressSize = len(lines)
+		for {
+			select {
+			case ev := <-ui.eventQueue:
+				if ev.Type == "log" {
+					pendingLogs = append(pendingLogs, ev)
+				} else if ev.Type == "progress" {
+					pendingProgress = ev.Lines
+				}
+			case <-ticker.C:
+				ui.mu.Lock()
+				ui.CleanProgress()
+
+				for _, log := range pendingLogs {
+					entry := fmt.Sprintf("%s%s%s\033[0m", log.Color, log.Prefix, log.Message)
+					fmt.Fprintln(os.Stdout, entry)
+				}
+				pendingLogs = nil
+
+				for _, line := range pendingProgress {
+					fmt.Fprintln(os.Stdout, line)
+				}
+				ui.progressSize = len(pendingProgress)
+				ui.mu.Unlock()
+			}
+		}
+	}()
 }
