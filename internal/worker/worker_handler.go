@@ -24,7 +24,7 @@ func NewAttack(cfg *config.AttackConfig, thorttle throttle.Throttler) Worker {
 	}
 }
 
-func (w *WokerHandler) Start(wg *sync.WaitGroup, input <-chan types.Attempt, shouldRetry func(types.Attempt) error) {
+func (w *WokerHandler) Start(id int, wg *sync.WaitGroup, input <-chan types.Attempt, shouldRetry func(types.Attempt) error) {
 	defer wg.Done()
 
 	client := httpclient.Get()
@@ -37,19 +37,19 @@ func (w *WokerHandler) Start(wg *sync.WaitGroup, input <-chan types.Attempt, sho
 		if err != nil {
 			logger.Progress.AddError()
 			if utils.IsTimeoutOrConnectionError(err) || w.cfg.IsThrottlingStatus(statusCode) {
+				w.throttle.Trigger()
 				if err := shouldRetry(attempt); err == nil {
 					logger.Progress.AddRetry()
-					w.throttle.Trigger()
 					continue
 				}
-				logger.Warn("[StandardThrottler] Retry limit reached for %s:%s – ignoring attempt → %s", attempt.Username, attempt.Password, err)
+				logger.Warn("[Worker %d] Retry limit reached for %s:%s – ignoring attempt → %s", id, attempt.Username, attempt.Password, err)
 			} else {
-				logger.Error("[Worker] Request error: %v\n", err)
+				logger.Error("[Worker %d] Request error: %v\n", id, err)
 			}
 		}
 
 		if success {
-			logger.Success("🎯 [Worker] [%d] Valid username:password → %s:%s 🎯", statusCode, attempt.Username, attempt.Password)
+			logger.Success("🎯 [Worker %d] [%d] Valid username:password → %s:%s 🎯", id, statusCode, attempt.Username, attempt.Password)
 			logger.Progress.AddSuccess()
 		}
 

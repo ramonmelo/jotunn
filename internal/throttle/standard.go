@@ -83,18 +83,17 @@ func (s *StandardThrottler) Trigger() {
 	logger.Warn("[StandardThrottler] Triggered after %d attempts – estimated RPM: %d", s.reqCount, rpm)
 
 	if s.recoveredSinceLastTrigger {
-		rpm = max(int(float64(rpm)*0.9), 10)
-		logger.Warn("[StandardThrottler] Threshold reduced by 10%% → %d RPM", rpm)
-
-		if rpm < s.threshold {
-			s.threshold = rpm
-		}
-
 		s.recoveredSinceLastTrigger = false
 	} else {
 		s.backoff *= 2
 		if s.backoff > 50*time.Minute {
 			s.backoff = 50 * time.Minute
+		}
+
+		rpm = max(int(float64(rpm)*0.9), 10)
+		logger.Warn("[StandardThrottler] Threshold reduced by 10%% → %d RPM", rpm)
+		if rpm < s.threshold {
+			s.threshold = rpm
 		}
 	}
 

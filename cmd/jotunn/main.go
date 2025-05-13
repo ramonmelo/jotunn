@@ -25,7 +25,7 @@ func main() {
 	logger.Init(cfg.LogFile)
 
 	logger.Info("Starting attack on: %s", cfg.URL)
-	logger.Info("Method: %s | Threads: %d", cfg.Method, cfg.Threads)
+	logger.Info("Method: %s | Threads: %d | Threshold: %d", cfg.Method, cfg.Threads, cfg.Threshold)
 	logger.Info("Users: %s | Passwords: %s\n", cfg.UserList, cfg.PassList)
 
 	err := httpclient.Init(cfg.Proxy, true)

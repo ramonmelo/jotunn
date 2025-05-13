@@ -14,45 +14,22 @@ import (
 )
 
 var (
-	client   *http.Client
-	initOnce sync.Once
+	client          *http.Client
+	initOnce        sync.Once
+	proxyAddrGlobal string
+	insecureGlobal  bool
 )
 
 func Init(proxyAddr string, insecure bool) error {
 	var err error
+	proxyAddrGlobal = proxyAddr
+	insecureGlobal = insecure
 
 	initOnce.Do(func() {
-		transport := &http.Transport{
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
-			IdleConnTimeout:     90 * time.Second,
-		}
-
-		if proxyAddr != "" {
-			if strings.HasPrefix(proxyAddr, "socks5://") {
-				parsed, _ := url.Parse(proxyAddr)
-				dialer, derr := proxy.SOCKS5("tcp", parsed.Host, nil, proxy.Direct)
-				if derr != nil {
-					err = derr
-					return
-				}
-
-				transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-					return dialer.Dial(network, addr)
-				}
-			} else {
-				proxyFunc := func(*http.Request) (*url.URL, error) {
-					return url.Parse(proxyAddr)
-				}
-				transport.Proxy = proxyFunc
-			}
-		}
-
 		client = &http.Client{
-			Transport: transport,
-			Timeout:   30 * time.Second,
+			Timeout: 30 * time.Second,
 		}
+		err = ResetTransport(proxyAddr, insecure)
 	})
 
 	return err
@@ -60,4 +37,45 @@ func Init(proxyAddr string, insecure bool) error {
 
 func Get() *http.Client {
 	return client
+}
+
+func ResetTransport(proxyAddr string, insecure bool) error {
+	transport := &http.Transport{
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
+		DisableKeepAlives:   true,
+		MaxIdleConns:        0,
+		MaxIdleConnsPerHost: 0,
+		IdleConnTimeout:     0,
+		TLSNextProto:        make(map[string]func(string, *tls.Conn) http.RoundTripper),
+	}
+
+	if proxyAddr != "" {
+		if strings.HasPrefix(proxyAddr, "socks5://") {
+			parsed, _ := url.Parse(proxyAddr)
+			dialer, err := proxy.SOCKS5("tcp", parsed.Host, nil, proxy.Direct)
+			if err != nil {
+				return err
+			}
+			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return dialer.Dial(network, addr)
+			}
+		} else {
+			transport.Proxy = func(*http.Request) (*url.URL, error) {
+				return url.Parse(proxyAddr)
+			}
+		}
+	}
+
+	if client != nil {
+		if oldTransport, ok := client.Transport.(*http.Transport); ok {
+			oldTransport.CloseIdleConnections()
+		}
+		client.Transport = transport
+	}
+
+	return nil
+}
+
+func Reset() error {
+	return ResetTransport(proxyAddrGlobal, insecureGlobal)
 }

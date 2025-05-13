@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"math/rand"
 	"sync"
 
 	"github.com/LinharesAron/jotunn/internal/logger"
@@ -53,9 +54,9 @@ func (d *Dispatcher) DistributeToWorkers(users []string, passwords []string) {
 }
 
 func (d *Dispatcher) StartWorkersHandler(threads int, work worker.Worker) {
-	for range threads {
+	for i := range threads {
 		d.workerWg.Add(1)
-		go work.Start(d.workerWg, d.workers, d.shouldRetry)
+		go work.Start(i, d.workerWg, d.workers, d.shouldRetry)
 	}
 }
 
@@ -70,7 +71,7 @@ func (d *Dispatcher) StartRetryHandler(work worker.Worker) {
 				close(ch)
 
 				d.workerWg.Add(1)
-				work.Start(d.workerWg, ch, d.shouldRetry)
+				work.Start(rand.Intn(9999), d.workerWg, ch, d.shouldRetry)
 			}(attempt)
 		}
 	}()

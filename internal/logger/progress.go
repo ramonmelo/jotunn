@@ -73,7 +73,7 @@ func (p *ProgressTracker) renderInline() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.current < p.total {
+	if p.current <= p.total {
 		p.render(p.current, p.total, p.startTime)
 	}
 }

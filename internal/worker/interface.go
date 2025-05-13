@@ -7,5 +7,5 @@ import (
 )
 
 type Worker interface {
-	Start(*sync.WaitGroup, <-chan types.Attempt, func(types.Attempt) error)
+	Start(int, *sync.WaitGroup, <-chan types.Attempt, func(types.Attempt) error)
 }

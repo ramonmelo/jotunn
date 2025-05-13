@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LinharesAron/jotunn/internal/httpclient"
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/utils"
 )
@@ -105,6 +106,8 @@ func (t *TorThrottler) waitResetTorIdentity() {
 	t.currentIp = newip
 	t.mu.Unlock()
 
+	httpclient.Reset()
+	logger.Progress.SetTor(t.currentIp)
 	logger.Info("[TorThrottle] [%s] Cooldown complete, resuming operations with new %s", time.Now().Format("15:04:05"), t.currentIp)
 	t.cond.Broadcast()
 }
