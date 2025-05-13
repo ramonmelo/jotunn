@@ -10,11 +10,14 @@ import (
 	"github.com/LinharesAron/jotunn/internal/io"
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/throttle"
+	"github.com/LinharesAron/jotunn/internal/ui"
 	"github.com/LinharesAron/jotunn/internal/utils"
 	"github.com/LinharesAron/jotunn/internal/worker"
 )
 
 func main() {
+	ui.Init()
+
 	logger.Info("🔥 Jötunn – From the blood of giants, only ruin will remains 🔥")
 
 	cfg := config.Load()

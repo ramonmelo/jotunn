@@ -2,10 +2,11 @@ package logger
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/LinharesAron/jotunn/internal/ui"
 )
 
 type ProgressTracker struct {
@@ -105,23 +106,23 @@ func (p *ProgressTracker) render(current, total int, startTime time.Time) {
 	}
 
 	status := fmt.Sprintf(
-		"\r🔥 Bruteforcing %s %d/%d (%.1f it/s) ⏱ %s ⌛ %s | 🎯 %d ❌ %d 🔁 %d%s ",
-		bar,
-		current, total,
-		rate,
-		formatDuration(elapsed),
-		etaStr,
+		"🎯 %d ❌ %d 🔁 %d%s",
 		p.success,
 		p.errors,
 		p.retries,
 		tor,
 	)
 
-	fmt.Fprint(os.Stdout, status)
+	draw := fmt.Sprintf(
+		"🔥 Bruteforcing %s %d/%d (%.1f it/s) ⏱ %s ⌛ %s",
+		bar,
+		current, total,
+		rate,
+		formatDuration(elapsed),
+		etaStr,
+	)
 
-	if current == total {
-		fmt.Println()
-	}
+	ui.UI.SetProgress(status, draw)
 }
 
 func formatDuration(d time.Duration) string {

@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"sync"
+
+	"github.com/LinharesAron/jotunn/internal/ui"
 )
 
 var fileLogger *log.Logger
@@ -30,9 +32,7 @@ func logWithColor(colorCode string, prefix string, msg string) {
 	logMu.Lock()
 	defer logMu.Unlock()
 
-	fmt.Fprint(os.Stdout, "\033[2K\r")
-	fmt.Fprintln(os.Stderr, colorCode+prefix+msg+"\033[0m")
-
+	ui.UI.LogLine(prefix, colorCode, msg)
 	if Progress != nil {
 		Progress.renderInline()
 	}

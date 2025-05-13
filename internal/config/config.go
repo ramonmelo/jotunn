@@ -23,8 +23,9 @@ type AttackConfig struct {
 	CSRFField     string
 	CSRFSourceURL string
 
-	SuccessKeyword string
-	FailKeyword    string
+	SuccessKeyword   string
+	FailKeyword      string
+	IsSuccessKeyword bool
 
 	LogFile    string
 	Proxy      string
@@ -34,13 +35,12 @@ type AttackConfig struct {
 	ThrottleCodes []int
 }
 
-func (cfg *AttackConfig) Keyword() (bool, string) {
+func (cfg *AttackConfig) Keyword() string {
 	if cfg.SuccessKeyword != "" {
-		return true, cfg.SuccessKeyword
+		return cfg.SuccessKeyword
 	}
-	return false, cfg.FailKeyword
+	return cfg.FailKeyword
 }
-
 func (cfg *AttackConfig) IsThrottlingStatus(statusCode int) bool {
 	return slices.Contains(cfg.ThrottleCodes, statusCode)
 }
@@ -92,6 +92,8 @@ func Load() *AttackConfig {
 		pflag.Usage()
 		os.Exit(1)
 	}
+
+	cfg.IsSuccessKeyword = cfg.SuccessKeyword != ""
 
 	if cfg.CSRFField != "" && cfg.CSRFSourceURL == "" {
 		cfg.CSRFSourceURL = cfg.URL

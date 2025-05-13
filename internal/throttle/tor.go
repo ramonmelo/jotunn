@@ -34,6 +34,7 @@ func NewTorThrottler(throttleCodes []int) *TorThrottler {
 	ip, err := GetCurrentIp()
 	if err == nil {
 		t.currentIp = ip
+		logger.Progress.SetTor(t.currentIp)
 		logger.Info("[TorThrottle] Start with success, current IP %s", t.currentIp)
 	}
 	return t

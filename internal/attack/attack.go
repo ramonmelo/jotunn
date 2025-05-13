@@ -58,22 +58,33 @@ func ExecuteAttempt(client *http.Client, cfg *config.AttackConfig, attempt *type
 	body := string(bodyBytes)
 	statusCode := resp.StatusCode
 
-	if isValidResponse(cfg, body) {
-		if isValidStatusCode(statusCode) {
-			return true, statusCode, nil
-		}
-		return false, statusCode, &InvalidStatusCode{statusCode}
+	valid, err := isValidResponse(cfg, body, statusCode)
+	if err != nil {
+		return false, statusCode, err
 	}
-	return isValidResponse(cfg, body), statusCode, nil
+	return valid, statusCode, nil
 }
 
 func isValidStatusCode(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 400
 }
 
-func isValidResponse(cfg *config.AttackConfig, body string) bool {
-	success, keyword := cfg.Keyword()
+func isValidResponse(cfg *config.AttackConfig, body string, statusCode int) (bool, error) {
+	keyword := cfg.Keyword()
 	containsKeyword := strings.Contains(body, keyword)
 
-	return success == containsKeyword
+	if cfg.IsSuccessKeyword {
+		return containsKeyword, nil
+	}
+
+	if containsKeyword {
+		return false, nil
+	}
+
+	validStatusCode := isValidStatusCode(statusCode)
+	if !validStatusCode {
+		return false, &InvalidStatusCode{statusCode}
+	}
+
+	return true, nil
 }

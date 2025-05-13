@@ -39,6 +39,7 @@ func (w *WokerHandler) Start(wg *sync.WaitGroup, input <-chan types.Attempt, sho
 			if utils.IsTimeoutOrConnectionError(err) || w.cfg.IsThrottlingStatus(statusCode) {
 				if err := shouldRetry(attempt); err == nil {
 					logger.Progress.AddRetry()
+					w.throttle.Trigger()
 					continue
 				}
 				logger.Warn("[StandardThrottler] Retry limit reached for %s:%s – ignoring attempt → %s", attempt.Username, attempt.Password, err)
