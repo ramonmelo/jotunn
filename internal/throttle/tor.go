@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"net"
-	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/LinharesAron/jotunn/internal/httpclient"
 	"github.com/LinharesAron/jotunn/internal/logger"
+	"github.com/LinharesAron/jotunn/internal/ui"
 	"github.com/LinharesAron/jotunn/internal/utils"
 )
 
@@ -35,31 +35,20 @@ func NewTorThrottler(throttleCodes []int) *TorThrottler {
 	ip, err := GetCurrentIp()
 	if err == nil {
 		t.currentIp = ip
-		logger.Progress.SetTor(t.currentIp)
+		ui.GetUI().SendIpProgressEvent(t.currentIp)
 		logger.Info("[TorThrottle] Start with success, current IP %s", t.currentIp)
 	}
 	return t
 }
 
-func (t *TorThrottler) RegisterRequest() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.reqCount++
-}
-
-func (t *TorThrottler) WaitIfBlocked() {
+func (t *TorThrottler) Wait() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for t.blocked {
 		t.cond.Wait()
 	}
-}
 
-func (t *TorThrottler) WaitCadence() {}
-
-func (t *TorThrottler) IsThrottling(statusCode int) bool {
-	return slices.Contains(t.codes, statusCode)
+	t.reqCount++
 }
 
 func (t *TorThrottler) MarkRecovered() {}
@@ -107,7 +96,7 @@ func (t *TorThrottler) waitResetTorIdentity() {
 	t.mu.Unlock()
 
 	httpclient.Reset()
-	logger.Progress.SetTor(t.currentIp)
+	ui.GetUI().SendIpProgressEvent(t.currentIp)
 	logger.Info("[TorThrottle] [%s] Cooldown complete, resuming operations with new %s", time.Now().Format("15:04:05"), t.currentIp)
 	t.cond.Broadcast()
 }

@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 
 	"github.com/LinharesAron/jotunn/internal/ui"
 )
 
 var fileLogger *log.Logger
 var enableFile bool = false
-var logMu sync.Mutex
 
 func Init(path string) {
 	if path == "" {
@@ -20,7 +18,7 @@ func Init(path string) {
 
 	logFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "\033[31mFailed to create log file: %v\033[0m\n", err)
+		Error("Failed to create log file: %v", err)
 		return
 	}
 
@@ -29,13 +27,7 @@ func Init(path string) {
 }
 
 func logWithColor(colorCode string, prefix string, msg string) {
-	logMu.Lock()
-	defer logMu.Unlock()
-
-	ui.UI.LogLine(prefix, colorCode, msg)
-	if Progress != nil {
-		Progress.renderInline()
-	}
+	ui.GetUI().SendLogEvent(prefix, colorCode, msg)
 }
 
 func Info(format string, args ...any) {

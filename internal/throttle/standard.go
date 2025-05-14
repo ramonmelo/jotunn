@@ -26,25 +26,13 @@ type StandardThrottler struct {
 	recoveredSinceLastTrigger bool
 }
 
-func (s *StandardThrottler) RegisterRequest() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.reqCount++
-}
-
-func (s *StandardThrottler) WaitIfBlocked() {
+func (s *StandardThrottler) Wait() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for s.blocked {
 		s.cond.Wait()
 	}
-}
-
-func (s *StandardThrottler) WaitCadence() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if s.threshold <= 0 {
 		return
@@ -59,12 +47,14 @@ func (s *StandardThrottler) WaitCadence() {
 	}
 
 	s.lastRequest = time.Now()
+	s.reqCount++
 }
 
 func (s *StandardThrottler) MarkRecovered() {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.recoveredSinceLastTrigger = true
-	s.mu.Unlock()
 }
 
 func (s *StandardThrottler) Trigger() {
@@ -113,9 +103,10 @@ func (s *StandardThrottler) cooldown() {
 	s.blocked = false
 	s.reqCount = 0
 	s.startTime = time.Now()
+
+	s.cond.Broadcast()
 	s.mu.Unlock()
 
 	now = time.Now().Format("15:04:05")
-	logger.Warn("[StandardThrottler] [%s] Cooldown complete, resuming operations\n", now)
-	s.cond.Broadcast()
+	logger.Warn("[StandardThrottler] [%s] Cooldown complete, resuming operations", now)
 }

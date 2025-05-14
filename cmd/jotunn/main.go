@@ -17,6 +17,7 @@ import (
 
 func main() {
 	ui.Init()
+	defer ui.Stop()
 
 	logger.Info("🔥 Jötunn – From the blood of giants, only ruin will remains 🔥")
 
@@ -64,7 +65,7 @@ You can add the following to your torrc file:
 		os.Exit(1)
 	}
 
-	logger.InitProgressTracker(len(users) * len(passwords))
+	ui.GetUI().SendTotalProgressEvent(len(users) * len(passwords))
 	logger.Info("[~] Starting the BruteForce...")
 
 	dispatcher := core.NewDispatcher(cfg.Threads, 3, 10000)

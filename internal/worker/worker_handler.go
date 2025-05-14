@@ -9,6 +9,7 @@ import (
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/throttle"
 	"github.com/LinharesAron/jotunn/internal/types"
+	"github.com/LinharesAron/jotunn/internal/ui"
 	"github.com/LinharesAron/jotunn/internal/utils"
 )
 
@@ -29,31 +30,29 @@ func (w *WokerHandler) Start(id int, wg *sync.WaitGroup, input <-chan types.Atte
 
 	client := httpclient.Get()
 	for attempt := range input {
-		w.throttle.WaitIfBlocked()
-		w.throttle.WaitCadence()
-		w.throttle.RegisterRequest()
+		w.throttle.Wait()
 
-		success, statusCode, err := attack.ExecuteAttempt(client, w.cfg, &attempt)
+		success, statusCode, err := attack.ExecuteAttempt(client, w.cfg, attempt)
 		if err != nil {
-			logger.Progress.AddError()
+			ui.GetUI().SendProgressEvent(ui.Error)
 			if utils.IsTimeoutOrConnectionError(err) || w.cfg.IsThrottlingStatus(statusCode) {
 				w.throttle.Trigger()
 				if err := shouldRetry(attempt); err == nil {
-					logger.Progress.AddRetry()
+					ui.GetUI().SendProgressEvent(ui.Retry)
 					continue
 				}
 				logger.Warn("[Worker %d] Retry limit reached for %s:%s – ignoring attempt → %s", id, attempt.Username, attempt.Password, err)
 			} else {
-				logger.Error("[Worker %d] Request error: %v\n", id, err)
+				logger.Error("[Worker %d] Request error in the attempt %s:%s -> %v", id, attempt.Username, attempt.Password, err)
 			}
 		}
 
 		if success {
 			logger.Success("🎯 [Worker %d] [%d] Valid username:password → %s:%s 🎯", id, statusCode, attempt.Username, attempt.Password)
-			logger.Progress.AddSuccess()
+			ui.GetUI().SendProgressEvent(ui.Success)
 		}
 
 		w.throttle.MarkRecovered()
-		logger.Progress.Inc()
+		ui.GetUI().SendProgressEvent(ui.Inc)
 	}
 }

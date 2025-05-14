@@ -10,7 +10,7 @@ import (
 	"github.com/LinharesAron/jotunn/internal/utils"
 )
 
-func ExecuteAttempt(client *http.Client, cfg *config.AttackConfig, attempt *types.Attempt) (bool, int, error) {
+func ExecuteAttempt(client *http.Client, cfg *config.AttackConfig, attempt types.Attempt) (bool, int, error) {
 
 	values := map[string]string{
 		"^USER^": attempt.Username,
@@ -25,9 +25,12 @@ func ExecuteAttempt(client *http.Client, cfg *config.AttackConfig, attempt *type
 		values["^CSRF^"] = csrfToken
 	}
 
-	payload := utils.ReplacePlaceholders(cfg.Payload, values)
+	payload, err := utils.SafeReplacePayload(cfg.Payload, values)
+	if err != nil {
+		return false, -1, err
+	}
+
 	var req *http.Request
-	var err error
 
 	if strings.ToUpper(cfg.Method) == "GET" {
 		urlWithQuery := cfg.URL + "?" + payload

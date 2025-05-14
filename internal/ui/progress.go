@@ -1,12 +1,10 @@
-package logger
+package ui
 
 import (
 	"fmt"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/LinharesAron/jotunn/internal/ui"
 )
 
 type ProgressTracker struct {
@@ -21,76 +19,51 @@ type ProgressTracker struct {
 	isTor         bool
 	torIP         string
 	mu            sync.Mutex
+	smoothedRate  float64
 }
 
-var Progress *ProgressTracker
-
-func InitProgressTracker(total int) {
-	Progress = &ProgressTracker{
-		total:     total,
-		startTime: time.Now(),
-	}
+func (p *ProgressTracker) SetTotal(total int) {
+	p.total = total
 }
 
 func (p *ProgressTracker) Inc() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	p.current++
-	current := p.current
-	total := p.total
-	startTime := p.startTime
-
-	p.render(current, total, startTime)
 }
 
 func (p *ProgressTracker) AddSuccess() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.success++
 }
 
 func (p *ProgressTracker) AddError() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.errors++
 }
 
 func (p *ProgressTracker) AddRetry() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.retries++
 }
 
 func (p *ProgressTracker) SetTor(ip string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.isTor = true
 	p.torIP = ip
 }
 
-func (p *ProgressTracker) renderInline() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.current <= p.total {
-		p.render(p.current, p.total, p.startTime)
+func (p *ProgressTracker) render() []string {
+	if p.total == 0 {
+		return []string{}
 	}
-}
 
-func (p *ProgressTracker) render(current, total int, startTime time.Time) {
 	width := 30
-	progress := float64(current) / float64(total)
+	progress := float64(p.current) / float64(p.total)
 	filled := int(progress * float64(width))
 	bar := "[" + strings.Repeat("=", filled) + ">" + strings.Repeat(" ", width-filled) + "]"
 
-	elapsed := time.Since(startTime)
-	rate := float64(current) / elapsed.Seconds()
+	elapsed := time.Since(p.startTime)
+	rate := float64(p.current) / elapsed.Seconds()
 	etaStr := "--"
 	now := time.Now()
 
 	if elapsed >= 10*time.Second && rate > 0 {
-		rawETA := time.Duration(float64(p.total-current)/rate) * time.Second
+		rawETA := time.Duration(float64(p.total-p.current)/rate) * time.Second
 
 		if p.lastETAUpdate.IsZero() || now.Sub(p.lastETAUpdate) >= 50*time.Second {
 			p.lastETA = rawETA
@@ -116,13 +89,13 @@ func (p *ProgressTracker) render(current, total int, startTime time.Time) {
 	draw := fmt.Sprintf(
 		"🔥 Bruteforcing %s %d/%d (%.1f it/s) ⏱ %s ⌛ %s",
 		bar,
-		current, total,
+		p.current, p.total,
 		rate,
 		formatDuration(elapsed),
 		etaStr,
 	)
 
-	ui.UI.SetProgress(status, draw)
+	return []string{status, draw}
 }
 
 func formatDuration(d time.Duration) string {
