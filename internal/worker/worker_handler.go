@@ -8,6 +8,7 @@ import (
 	"github.com/LinharesAron/jotunn/internal/httpclient"
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/throttle"
+	"github.com/LinharesAron/jotunn/internal/tracker"
 	"github.com/LinharesAron/jotunn/internal/types"
 	"github.com/LinharesAron/jotunn/internal/ui"
 	"github.com/LinharesAron/jotunn/internal/utils"
@@ -49,10 +50,13 @@ func (w *WokerHandler) Start(id int, wg *sync.WaitGroup, input <-chan types.Atte
 
 		if success {
 			logger.Success("🎯 [Worker %d] [%d] Valid username:password → %s:%s 🎯", id, statusCode, attempt.Username, attempt.Password)
-			ui.GetUI().SendProgressEvent(ui.Success)
+			if !tracker.Get().Credential.HasSeen(attempt.Username, attempt.Password) {
+				tracker.Get().Credential.Mark(attempt.Username, attempt.Password)
+			}
 		}
 
 		w.throttle.MarkRecovered()
 		ui.GetUI().SendProgressEvent(ui.Inc)
+		tracker.Get().Attempts.Mark(attempt.Username, attempt.Password)
 	}
 }

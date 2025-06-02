@@ -31,9 +31,9 @@ func NewDispatcher(numWorkers int, retryLimit int, bufferSize int) *Dispatcher {
 	return d
 }
 
-func (d *Dispatcher) DistributeToWorkers(users []string, passwords []string) {
+func (d *Dispatcher) DistributeToWorkers(attempts []types.Attempt) {
 	numberDispatchers := 10
-	userCount := len(users)
+	attemptCount := len(attempts)
 
 	var distWg sync.WaitGroup
 	distWg.Add(numberDispatchers)
@@ -41,11 +41,8 @@ func (d *Dispatcher) DistributeToWorkers(users []string, passwords []string) {
 	for i := range numberDispatchers {
 		go func(offset int) {
 			defer distWg.Done()
-			for j := offset; j < userCount; j += numberDispatchers {
-				user := users[j]
-				for _, pass := range passwords {
-					d.Dispatch(types.Attempt{Username: user, Password: pass})
-				}
+			for j := offset; j < attemptCount; j += numberDispatchers {
+				d.Dispatch(attempts[j])
 			}
 		}(i)
 	}

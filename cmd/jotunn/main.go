@@ -1,7 +1,11 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/LinharesAron/jotunn/internal/config"
@@ -10,18 +14,22 @@ import (
 	"github.com/LinharesAron/jotunn/internal/io"
 	"github.com/LinharesAron/jotunn/internal/logger"
 	"github.com/LinharesAron/jotunn/internal/throttle"
+	"github.com/LinharesAron/jotunn/internal/tracker"
 	"github.com/LinharesAron/jotunn/internal/ui"
 	"github.com/LinharesAron/jotunn/internal/utils"
 	"github.com/LinharesAron/jotunn/internal/worker"
 )
 
-func main() {
+func run() bool {
 	ui.Init()
 	defer ui.Stop()
 
 	logger.Info("🔥 Jötunn – From the blood of giants, only ruin will remains 🔥")
 
 	cfg := config.Load()
+	if cfg == nil {
+		return waitToExit(false)
+	}
 
 	logger.Init(cfg.LogFile)
 
@@ -32,7 +40,7 @@ func main() {
 	err := httpclient.Init(cfg.Proxy, true)
 	if err != nil {
 		logger.Error("Failed to initialize HTTP client: %s", err)
-		os.Exit(1)
+		return waitToExit(false)
 	}
 
 	if cfg.UseTor {
@@ -46,7 +54,7 @@ You can add the following to your torrc file:
     ControlPort 9051
     CookieAuthentication 0
 `)
-			os.Exit(1)
+			return waitToExit(false)
 		}
 	}
 
@@ -56,18 +64,29 @@ You can add the following to your torrc file:
 	users, err := io.ReadLines(cfg.UserList)
 	if err != nil {
 		logger.Error("[!] Failed to read users file: %v", err)
-		os.Exit(1)
+		return waitToExit(false)
 	}
 
 	passwords, err := io.ReadLines(cfg.PassList)
 	if err != nil {
 		logger.Error("[!] Failed to read passwords file: %v", err)
-		os.Exit(1)
+		return waitToExit(false)
 	}
 
-	ui.GetUI().SendTotalProgressEvent(len(users) * len(passwords))
-	logger.Info("[~] Starting the BruteForce...")
+	attemptFile := fmt.Sprintf("jotunn_%s_%s.attempts", hashList(users), hashList(passwords))
+	tracker.InitTracker(cfg.BasePath).
+		StartAttempts(attemptFile).
+		StartCredential()
+	defer tracker.Get().CloseAll()
 
+	attemps := tracker.FilterUnseen(tracker.Get().Attempts, users, passwords)
+
+	if len(attemps) == 0 {
+		logger.Warn("[!] All combinations from this list have already been tried. Try a different list or delete the Jötunn attempt file at %s", cfg.BasePath)
+		return waitToExit(false)
+	}
+
+	ui.GetUI().SendTotalProgressEvent(len(attemps))
 	dispatcher := core.NewDispatcher(cfg.Threads, 3, 10000)
 	throttle := throttle.New(cfg)
 
@@ -76,7 +95,8 @@ You can add the following to your torrc file:
 	dispatcher.StartWorkersHandler(cfg.Threads, handler)
 	dispatcher.StartRetryHandler(handler)
 
-	dispatcher.DistributeToWorkers(users, passwords)
+	logger.Info("[~] Starting the BruteForce...")
+	dispatcher.DistributeToWorkers(attemps)
 
 	dispatcher.CloseWorkers()
 	dispatcher.WaitWorkers()
@@ -86,4 +106,22 @@ You can add the following to your torrc file:
 
 	duration := time.Since(start)
 	logger.Info("✅ Done in %s", duration)
+
+	return true
+}
+
+func waitToExit(b bool) bool {
+	time.Sleep(2 * time.Second)
+	return b
+}
+
+func main() {
+	if ok := run(); !ok {
+		os.Exit(1)
+	}
+}
+
+func hashList(list []string) string {
+	h := sha1.Sum([]byte(strings.Join(list, ",")))
+	return hex.EncodeToString(h[:])
 }

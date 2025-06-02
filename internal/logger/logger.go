@@ -26,13 +26,13 @@ func Init(path string) {
 	enableFile = true
 }
 
-func logWithColor(colorCode string, prefix string, msg string) {
-	ui.GetUI().SendLogEvent(prefix, colorCode, msg)
+func logWithColor(colorCode string, prefix string, msg string, fixed bool) {
+	ui.GetUI().SendLogEvent(prefix, colorCode, msg, fixed)
 }
 
 func Info(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	logWithColor("\033[33m", "", msg)
+	logWithColor("\033[33m", "", msg, false)
 	if enableFile {
 		fileLogger.Printf("[INFO] %s", msg)
 	}
@@ -40,7 +40,7 @@ func Info(format string, args ...any) {
 
 func Error(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	logWithColor("\033[31m", "[ERROR] ", msg)
+	logWithColor("\033[31m", "[ERROR] ", msg, false)
 	if enableFile {
 		fileLogger.Println("[ERROR]", fmt.Sprint(args...))
 	}
@@ -48,7 +48,7 @@ func Error(format string, args ...any) {
 
 func Success(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	logWithColor("\033[32m", "[SUCCESS] ", msg)
+	logWithColor("\033[32m", "[SUCCESS] ", msg, true)
 	if enableFile {
 		fileLogger.Println("[SUCCESS]", fmt.Sprint(args...))
 	}
@@ -56,7 +56,7 @@ func Success(format string, args ...any) {
 
 func Warn(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	logWithColor("\033[35m", "[WARN] ", msg)
+	logWithColor("\033[35m", "[WARN] ", msg, false)
 	if enableFile {
 		fileLogger.Println("[WARN]", fmt.Sprint(args...))
 	}

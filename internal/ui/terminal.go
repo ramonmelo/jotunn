@@ -10,11 +10,11 @@ import (
 )
 
 type TerminalUI struct {
-	mu           sync.Mutex
-	eventQueue   chan UIEvent
-	progressSize int
-	done         chan struct{}
-	wg           sync.WaitGroup
+	mu         sync.Mutex
+	eventQueue chan UIEvent
+	bottonSize int
+	done       chan struct{}
+	wg         sync.WaitGroup
 }
 
 type UIEvent struct {
@@ -26,28 +26,31 @@ type UIEvent struct {
 	Progress ProgressEvent
 }
 
-func (ui *TerminalUI) CleanProgress() {
-	if ui.progressSize == 0 {
+func (ui *TerminalUI) CleanBotton() {
+	if ui.bottonSize == 0 {
 		return
 	}
 
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("\033[%dA", ui.progressSize))
+	sb.WriteString(fmt.Sprintf("\033[%dA", ui.bottonSize))
 
-	for range ui.progressSize {
+	for range ui.bottonSize {
 		sb.WriteString("\033[2K")
 		sb.WriteString("\033[1B")
 	}
 
-	sb.WriteString(fmt.Sprintf("\033[%dA", ui.progressSize))
+	sb.WriteString(fmt.Sprintf("\033[%dA", ui.bottonSize))
 
 	fmt.Print(sb.String())
-	ui.progressSize = 0
 }
 
-func (ui *TerminalUI) SendLogEvent(prefix, color, msg string) {
-	ui.eventQueue <- UIEvent{Type: "log", Prefix: prefix, Color: color, Message: msg}
+func (ui *TerminalUI) SendLogEvent(prefix, color, msg string, fixed bool) {
+	if fixed {
+		ui.sendEvent(UIEvent{Type: "fixed", Prefix: prefix, Color: color, Message: msg})
+	} else {
+		ui.sendEvent(UIEvent{Type: "log", Prefix: prefix, Color: color, Message: msg})
+	}
 }
 
 type ProgressEvent int
@@ -62,15 +65,19 @@ const (
 )
 
 func (ui *TerminalUI) SendProgressEvent(event ProgressEvent) {
-	ui.eventQueue <- UIEvent{Type: "event", Progress: event}
+	ui.sendEvent(UIEvent{Type: "event", Progress: event})
 }
 
 func (ui *TerminalUI) SendIpProgressEvent(ip string) {
-	ui.eventQueue <- UIEvent{Type: "event", Progress: Tor, Message: ip}
+	ui.sendEvent(UIEvent{Type: "event", Progress: Tor, Message: ip})
 }
 
 func (ui *TerminalUI) SendTotalProgressEvent(total int) {
-	ui.eventQueue <- UIEvent{Type: "event", Progress: Total, Total: total}
+	ui.sendEvent(UIEvent{Type: "event", Progress: Total, Total: total})
+}
+
+func (ui *TerminalUI) sendEvent(event UIEvent) {
+	ui.eventQueue <- event
 }
 
 func (ui *TerminalUI) StartLoop() {
@@ -78,15 +85,20 @@ func (ui *TerminalUI) StartLoop() {
 
 	go func() {
 		defer ui.wg.Done()
+
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
+
 		var pendingLogs []UIEvent
+		var fixed []UIEvent
 
 		for {
 			select {
 			case ev := <-ui.eventQueue:
 				if ev.Type == "log" {
 					pendingLogs = append(pendingLogs, ev)
+				} else if ev.Type == "fixed" {
+					fixed = append(fixed, ev)
 				} else if ev.Type == "event" {
 					switch ev.Progress {
 					case Success:
@@ -109,7 +121,9 @@ func (ui *TerminalUI) StartLoop() {
 				}
 			case <-ticker.C:
 				ui.mu.Lock()
-				ui.CleanProgress()
+				ui.CleanBotton()
+
+				ui.bottonSize = 0
 
 				var outputBuffer bytes.Buffer
 
@@ -119,6 +133,12 @@ func (ui *TerminalUI) StartLoop() {
 				}
 				pendingLogs = nil
 
+				for _, log := range fixed {
+					entry := fmt.Sprintf("%s%s%s\033[0m\n", log.Color, log.Prefix, log.Message)
+					outputBuffer.WriteString(entry)
+				}
+				ui.bottonSize += len(fixed)
+
 				pendingProgress := progress.render()
 				for _, line := range pendingProgress {
 					outputBuffer.WriteString(line + "\n")
@@ -126,7 +146,7 @@ func (ui *TerminalUI) StartLoop() {
 
 				fmt.Fprint(os.Stdout, outputBuffer.String())
 
-				ui.progressSize = len(pendingProgress)
+				ui.bottonSize += len(pendingProgress)
 				ui.mu.Unlock()
 			case <-ui.done:
 				if pendingLogs == nil {

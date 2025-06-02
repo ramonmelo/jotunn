@@ -1,11 +1,14 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/LinharesAron/jotunn/internal/logger"
+	"github.com/LinharesAron/jotunn/internal/utils"
 	"github.com/spf13/pflag"
 )
 
@@ -16,6 +19,7 @@ type AttackConfig struct {
 	PassList  string
 	Threads   int
 	Threshold int
+	BasePath  string
 
 	Payload string
 	Headers map[string]string
@@ -41,8 +45,39 @@ func (cfg *AttackConfig) Keyword() string {
 	}
 	return cfg.FailKeyword
 }
+
 func (cfg *AttackConfig) IsThrottlingStatus(statusCode int) bool {
 	return slices.Contains(cfg.ThrottleCodes, statusCode)
+}
+
+func (cfg *AttackConfig) SetBasePath() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	domain, err := utils.GetDomain(cfg.URL)
+	if err != nil {
+		return err
+	}
+
+	jotunnDir := filepath.Join(homeDir, ".jotunn")
+	domainDir := filepath.Join(jotunnDir, domain)
+
+	if _, err := os.Stat(domainDir); os.IsNotExist(err) {
+		err = os.MkdirAll(domainDir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory: %v", err)
+		}
+	}
+
+	cfg.BasePath = domainDir
+	return nil
+}
+
+func GetUsage() {
+	usages := pflag.CommandLine.FlagUsages()
+	logger.Info("Usage of jotunn:\n%s", usages)
 }
 
 func Load() *AttackConfig {
@@ -77,20 +112,20 @@ func Load() *AttackConfig {
 
 	if cfg.URL == "" {
 		logger.Error("[!] Missing required --url")
-		pflag.Usage()
-		os.Exit(1)
+		GetUsage()
+		return nil
 	}
 
 	if cfg.Payload == "" {
 		logger.Error("[!] Payload required --payload")
-		pflag.Usage()
-		os.Exit(1)
+		GetUsage()
+		return nil
 	}
 
 	if cfg.SuccessKeyword == "" && cfg.FailKeyword == "" {
 		logger.Error("[!] Success keyword or Fail Keyword required --success or --fail")
-		pflag.Usage()
-		os.Exit(1)
+		GetUsage()
+		return nil
 	}
 
 	cfg.IsSuccessKeyword = cfg.SuccessKeyword != ""
@@ -124,5 +159,6 @@ func Load() *AttackConfig {
 		}
 	}
 
+	cfg.SetBasePath()
 	return cfg
 }
