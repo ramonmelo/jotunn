@@ -86,10 +86,10 @@ jotunn \
 
 Wordlists are plain text files containing lists of usernames and passwords. These lists are used in conjunction with the `^USER^` and `^PASS^` placeholders in the payload. The tool will iterate through each combination of username and password from the provided files and send them in the payload.
 
-| Flag                      | Description                          | Example                   | Default Value              |
-|---------------------------|--------------------------------------|---------------------------|----------------------------|
-| `--users <path>.txt`      | Path to the username wordlist file   | `--users users.txt`       | `wordlists/users.txt`      |
-| `--passwords <path>.txt`  | Path to the password wordlist file   | `--passwords pass.txt`    | `wordlists/passwords.txt`  |
+```bash
+--users <path>.txt     # Path to the username wordlist file (default: `wordlists/users.txt`)
+--passwords <path>.txt # Path to the password wordlist file (default: `wordlists/passwords.txt`)
+```
 
 ---
 
@@ -99,14 +99,11 @@ You can customize HTTP headers using the `--header` flag.
 This allows you to set any headers required by the target application, such as authentication tokens or content types.
 The flag can be used multiple times to set multiple headers.
 
-| Flag                                 | Description                        |
-|--------------------------------------|------------------------------------|
-| `--header "<Header-Name>: <value>"`  | Custom Header                      |
-
-| Header                           | Example                                     |
-|----------------------------------|---------------------------------------------|
-| `Content-Type: application/json` | `--header "Content-Type: application/json"` |
-| `X-Auth: abc123`                 | `--header "X-Auth: abc123"`                 |
+```bash
+--header "<Header-Name>: <value>"         # Custom header to include in requests
+--header "Content-Type: application/json" # Example of setting Content-Type
+--header "X-Auth: abc123"                 # Example of setting an authentication header
+```
 
 ### ✅ Default headers (applied only if not overridden)
 
@@ -119,14 +116,11 @@ The flag can be used multiple times to set multiple headers.
 
 Use `--proxy` to route requests through a proxy:
 
-| Flag             | Description                        |
-|------------------|------------------------------------|
-| `--proxy <URL>`  | URL to use as proxy                |
-
-| Proxy Type | Example                                 |
-|------------|-----------------------------------------|
-| HTTP       | `--proxy http://127.0.0.1:8080`         |
-| SOCKS5     | `--proxy socks5://127.0.0.1:9050`       |
+```bash
+--proxy <URL>                   # URL of the proxy server
+--proxy http://127.0.0.1:8080   # Example of an HTTP proxy
+--proxy socks5://127.0.0.1:9050 # Example of a SOCKS5 proxy
+```
 
 ---
 
@@ -138,11 +132,11 @@ Many applications implement rate limiting to prevent brute-force attacks. Jötun
 
 You can control which throttling logic will be used with the following flags:
 
-| Flag                      | Description                                                      |
-|---------------------------|------------------------------------------------------------------|
-| `--no-limit`              | Disables all throttling. Fastest but risky.                      |
-| `--throttle-status-codes` | List of HTTP status codes considered throttling (default: 429)   |
-| `--tor`                   | Enable Tor mode (requires Tor and ControlPort access)            |
+```bash
+--no-limit               # Disables all throttling. Fastest but risky
+--throttle-status-codes  # List of HTTP status codes considered throttling (default: 429)
+--tor                    # Enable Tor mode (requires Tor and ControlPort access)
+```
 
 ### 🧊 StandardThrottler (default)
 
@@ -214,10 +208,10 @@ If the flag `--csrffield` is provided, Jötunn will:
 
 ### Flags
 
-| Flag                    | Description                                                                                  |
-|-------------------------|----------------------------------------------------------------------------------------------|
-| `--csrffield <string>`  | Name of the CSRF field to extract (e.g. `"csrf_token"`)                                      |
-| `--csrfsource <URL>`    | URL where the CSRF token will be retrieved (defaults to `--url` if not provided)             |
+```bash
+--csrffield <string>  # Name of the CSRF field to extract (e.g. "csrf_token")
+--csrfsource <URL>    # URL where the CSRF token will be retrieved (defaults to --url if not provided)
+```
 
 ### Payload Usage
 
@@ -250,9 +244,9 @@ All logs include timestamps, status indicators, and are written both to the term
 
 You can save all output to a log file:
 
-| Flag                            | Example                  | Description                        |
-|---------------------------------|--------------------------|------------------------------------|
-| `--log-file <path>/<file>.log`  | `--log-file jotunn.log`  | Path to save the output logs       |
+```bash
+--log-file <path>/<file>.log  # Path to save the output logs
+```
 
 ---
 
