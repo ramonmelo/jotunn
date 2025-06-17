@@ -20,15 +20,15 @@ go install github.com/LinharesAron/jotunn/cmd/jotunn@latest
 
 ## 🚀 Features
 
-- ⚔️ **Concurrent brute-force** using goroutines
-- 🚦 **Rate limit detection** with exponential backoff and cooldown
-- ♻️ **Retry queue** for rescheduling blocked combos
-- 🎯 **Keyword-based validation** for success or failure detection
-- 🌐 **Proxy support** (`--proxy`)
-- 📩 **Custom headers** with fallback to default `User-Agent` and `Content-Type`
-- 📊 **Progress bar** that stays clean and persistent
-- 🧾 **Log file support** (`--log-file`)
-- ✅ **Wordlist cleaner** (ignores empty lines automatically)
+- ⚔️ **Concurrent brute-force** using goroutines.
+- 🚦 **Rate limit detection** with exponential backoff and cooldown.
+- ♻️ **Retry queue** for rescheduling blocked combos.
+- 🎯 **Keyword-based validation** for success or failure detection.
+- 🌐 **Proxy support**.
+- 📩 **Custom headers** with fallback to default `User-Agent` and `Content-Type`.
+- 📊 **Progress bar** that stays clean and persistent.
+- 🧾 **Log file support**.
+- ✅ **Wordlist cleaner** by ignoring empty lines automatically.
 
 ---
 
@@ -53,48 +53,56 @@ jotunn \
 
 ## 📌 Required Flags
 
-| Flag        | Description                                 |
-|-------------|---------------------------------------------|
-| `--url`     | Target login URL                            |
-| `--payload` | HTTP payload with `^USER^` and `^PASS^`      |
-| `--success` or `--fail` | Keyword to detect success/failure |
+| Flag                    | Description                             |
+|-------------------------|-----------------------------------------|
+| `--url`                 | Target login URL                        |
+| `--payload`             | HTTP payload with `^USER^` and `^PASS^` |
+| `--success` or `--fail` | Keyword to detect success/failure       |
 
 ### 📚 Available Flags
 
-| Flag                         | Description                                                                 |
+| Flag                        | Description                                                                 |
 |-----------------------------|-----------------------------------------------------------------------------|
-| `--url, -u`                 | Target login URL (**required**)                                            |
-| `--method, -m`              | HTTP method (`GET` or `POST`) – default is `POST`                          |
-| `--users, -U`               | Path to username list – default is `wordlists/users.txt`                   |
-| `--passwords, -P`           | Path to password list – default is `wordlists/passwords.txt`               |
-| `--payload, -d`             | Payload format with ^USER^ and ^PASS^ placeholders                         |
-| `--success, -s`             | Keyword in the response indicating a successful login                      |
-| `--fail, -f`                | Keyword indicating a failed login attempt                                  |
-| `--threads, -t`             | Number of threads – default is `10`                                        |
-| `--threshold, -T`           | Request per minute threshold – default is `100`                            |
-| `--proxy`                   | HTTP or SOCKS5 proxy to route brute-force requests through                                  |
+| `--url, -u`                 | Target login URL (**required**)                                             |
+| `--method, -m`              | HTTP method (`GET` or `POST`) – default is `POST`                           |
+| `--users, -U`               | Path to username list – default is `wordlists/users.txt`                    |
+| `--passwords, -P`           | Path to password list – default is `wordlists/passwords.txt`                |
+| `--payload, -d`             | Payload format with ^USER^ and ^PASS^ placeholders                          |
+| `--success, -s`             | Keyword in the response indicating a successful login                       |
+| `--fail, -f`                | Keyword indicating a failed login attempt                                   |
+| `--threads, -t`             | Number of threads – default is `10`                                         |
+| `--threshold, -T`           | Request per minute threshold – default is `100`                             |
+| `--proxy`                   | HTTP or SOCKS5 proxy to route brute-force requests through                  |
 | `--tor`                     | Enable Tor mode using proxy `socks5://127.0.0.1:9050`                       |
-| `--no-limit`                | Disable any throttling logic (faster, but risk of block)                   |
-| `--csrfsource`              | URL to fetch the CSRF token before login                                   |
-| `--csrffield`               | HTML input name that holds the CSRF token                                  |
-| `--log-file`                | Path to save the output logs                                               |
-| `--throttle-status-codes`  | Status codes to treat as throttling (default `[429]`)                      |
+| `--no-limit`                | Disable any throttling logic (faster, but risk of block)                    |
+| `--csrfsource`              | URL to fetch the CSRF token before login                                    |
+| `--csrffield`               | HTML input name that holds the CSRF token                                   |
+| `--log-file`                | Path to save the output logs                                                |
+| `--throttle-status-codes`   | Status codes to treat as throttling (default `[429]`)                       |
 
 ---
 
 ## 📁 Wordlists
 
-- `--users` → default: `wordlists/users.txt`
-- `--passwords` → default: `wordlists/passwords.txt`
+Wordlists are plain text files containing lists of usernames and passwords. These lists are used in conjunction with the `^USER^` and `^PASS^` placeholders in the payload. The tool will iterate through each combination of username and password from the provided files and send them in the payload.
+
+```bash
+--users <path>.txt     # Path to the username wordlist file (default: `wordlists/users.txt`)
+--passwords <path>.txt # Path to the password wordlist file (default: `wordlists/passwords.txt`)
+```
 
 ---
 
 ## 🧠 Headers
 
-You can pass headers using `--header` multiple times:
+You can customize HTTP headers using the `--header` flag.
+This allows you to set any headers required by the target application, such as authentication tokens or content types.
+The flag can be used multiple times to set multiple headers.
 
 ```bash
---header "Content-Type: application/json" --header "X-Auth: abc123"
+--header "<Header-Name>: <value>"         # Custom header to include in requests
+--header "Content-Type: application/json" # Example of setting Content-Type
+--header "X-Auth: abc123"                 # Example of setting an authentication header
 ```
 
 ### ✅ Default headers (applied only if not overridden)
@@ -109,7 +117,9 @@ You can pass headers using `--header` multiple times:
 Use `--proxy` to route requests through a proxy:
 
 ```bash
---proxy http://127.0.0.1:8080
+--proxy <URL>                   # URL of the proxy server
+--proxy http://127.0.0.1:8080   # Example of an HTTP proxy
+--proxy socks5://127.0.0.1:9050 # Example of a SOCKS5 proxy
 ```
 
 ---
@@ -123,9 +133,9 @@ Many applications implement rate limiting to prevent brute-force attacks. Jötun
 You can control which throttling logic will be used with the following flags:
 
 ```bash
-  --no-limit                    Disables all throttling. Fastest but risky.
-  --throttle-status-codes       List of HTTP status codes considered throttling (default: 429)
-  --tor                         Enable Tor mode (requires Tor and ControlPort access)
+--no-limit               # Disables all throttling. Fastest but risky
+--throttle-status-codes  # List of HTTP status codes considered throttling (default: 429)
+--tor                    # Enable Tor mode (requires Tor and ControlPort access)
 ```
 
 ### 🧊 StandardThrottler (default)
@@ -149,13 +159,14 @@ This is the default strategy used by Jötunn. It:
 
 When `--tor` is enabled, Jötunn will:
 
-- Route traffic through the Tor network (via 127.0.0.1:9050).
-- Use the ControlPort (9051) to request a new identity/IP when throttled.
+- Route traffic through the Tor Network (via `127.0.0.1:9050`).
+- Use the ControlPort (`9051`) to request a new identity/IP when throttled.
 - Pause all workers while waiting for the new IP to be active.
 - Resume only when the IP has changed or timeout occurs.
 
 **Requirements:**
-Ensure Tor is installed and that the following lines are present in your torrc configuration file:
+
+Ensure Tor is installed and that the following lines are present in your `torrc` configuration file:
 
 ```conf
   ControlPort 9051
@@ -172,43 +183,43 @@ Ensure Tor is installed and that the following lines are present in your torrc c
 
 > 💡 This strategy is ideal for hardened targets or CTFs that aggressively block brute-force attempts.
 
-## ☠️ NoLimitThrottle
+### ☠️ NoLimitThrottle
 
 When you use `--no-limit`, Jötunn disables all request pacing and retries.
 
 - Useful for fast testing or internal environments.
 - Dangerous against real targets – likely to trigger defenses or get IP banned.
-- No backoff, no retries, no detection of 429/403 – it just goes.
+- No backoff, no retries, no detection of `429`/`403` – it just goes.
 
 ---
 
 ## 🔐 CSRF Token Support
 
-Some login forms include a CSRF token as a hidden field to prevent automated or cross-site submissions. Jötunn supports extracting this token before sending the login attempt.
+Some login forms include a `CSRF Token` as a hidden field to prevent automated or cross-site submissions. Jötunn supports extracting this token before sending the login attempt.
 
 ### How CSRF Token Extraction Works
 
 If the flag `--csrffield` is provided, Jötunn will:
 
 1. Perform a **GET** request to the target page (by default the same URL as `--url` unless `--csrfsource` is defined).
-2. Parse the **HTML** to extract the value of the CSRF token using the provided field name.
+2. Parse the HTML to extract the value of the `CSRF Token` using the provided field name.
 3. Replace the `^CSRF^` placeholder in the payload with the extracted token.
-4. Proceed with the brute-force attempt using the updated payload
+4. Proceed with the brute-force attempt using the updated payload.
 
 ### Flags
 
 ```bash
-  --csrffield string        Name of the CSRF field to extract (e.g. "csrf_token")
-  --csrfsource string       URL where the CSRF token will be retrieved (defaults to --url if not provided)
+--csrffield <string>  # Name of the CSRF field to extract (e.g. "csrf_token")
+--csrfsource <URL>    # URL where the CSRF token will be retrieved (defaults to --url if not provided)
 ```
 
 ### Payload Usage
 
-Your payload should include the special token ^CSRF^, which will be dynamically replaced.
+Your payload should include the special token `^CSRF^`, which will be dynamically replaced.
 Example:
 
 ```bash
-  -d "username=^USER^&password=^PASS^&csrf_token=^CSRF^"
+--payload "username=^USER^&password=^PASS^&csrf_token=^CSRF^"
 ```
 
 ### Example
@@ -234,7 +245,7 @@ All logs include timestamps, status indicators, and are written both to the term
 You can save all output to a log file:
 
 ```bash
---log-file jotunn.log
+--log-file <path>/<file>.log  # Path to save the output logs
 ```
 
 ---
