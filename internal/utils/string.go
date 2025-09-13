@@ -16,7 +16,7 @@ func SafeReplacePayload(template string, values map[string]string) (string, erro
 		for k, v := range values {
 			final, err := json.Marshal(v)
 			str := string(final)
-			if err != err {
+			if err != nil {
 				return "", fmt.Errorf("invalid JSON after replace: %w", err)
 			}
 			template = strings.ReplaceAll(template, k, str[1:len(str)-1])
