@@ -6,6 +6,8 @@ import (
 	"net/url"
 )
 
+// IsTimeoutOrConnectionError checks whether the provided error is related to a network timeout
+// or a connection error.
 func IsTimeoutOrConnectionError(err error) bool {
 	var netErr net.Error
 	if errors.As(err, &netErr) {

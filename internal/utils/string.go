@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// SafeReplacePayload replaces placeholders in a template string with values from a map.
+// It handles both JSON and non-JSON templates. For JSON, it ensures that the values are properly escaped.
 func SafeReplacePayload(template string, values map[string]string) (string, error) {
 	isJSON := strings.HasPrefix(strings.TrimSpace(template), "{")
 
@@ -30,6 +32,7 @@ func SafeReplacePayload(template string, values map[string]string) (string, erro
 	return template, nil
 }
 
+// TruncateAndClean truncates a string to a specified limit and removes newlines.
 func TruncateAndClean(s string, limit int) string {
 	if len(s) > limit {
 		s = s[:limit]
@@ -37,6 +40,7 @@ func TruncateAndClean(s string, limit int) string {
 	return RemoveNewlines(s)
 }
 
+// RemoveNewlines removes all newline characters from a string.
 func RemoveNewlines(s string) string {
 
 	s = strings.ReplaceAll(s, "\n", "")

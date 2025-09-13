@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// AttackConfig holds the configuration for the attack, including target URL, HTTP method,
+// user and password lists, among other parameters.
 type AttackConfig struct {
 	URL       string
 	Method    string
@@ -39,6 +41,7 @@ type AttackConfig struct {
 	ThrottleCodes []int
 }
 
+// Extract the keyword to check for success or failure in the login response.
 func (cfg *AttackConfig) Keyword() string {
 	if cfg.SuccessKeyword != "" {
 		return cfg.SuccessKeyword
@@ -46,10 +49,12 @@ func (cfg *AttackConfig) Keyword() string {
 	return cfg.FailKeyword
 }
 
+// IsThrottlingStatus checks if the given status code is in the list of throttling status codes.
 func (cfg *AttackConfig) IsThrottlingStatus(statusCode int) bool {
 	return slices.Contains(cfg.ThrottleCodes, statusCode)
 }
 
+// SetBasePath sets the base path for storing results and logs based on the target URL.
 func (cfg *AttackConfig) SetBasePath() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -75,11 +80,14 @@ func (cfg *AttackConfig) SetBasePath() error {
 	return nil
 }
 
+// GetUsage prints the usage information for the jotunn command-line tool.
 func GetUsage() {
 	usages := pflag.CommandLine.FlagUsages()
 	logger.Info("Usage of jotunn:\n%s", usages)
 }
 
+// Load initializes the AttackConfig from command-line flags and sets default values.
+// It returns a pointer to the AttackConfig or nil if required parameters are missing.
 func Load() *AttackConfig {
 	cfg := &AttackConfig{}
 
